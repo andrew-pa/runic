@@ -72,7 +72,7 @@ impl Window {
         }
     }
     pub fn from_handle(hndl: HWND) -> Window { Window { hndl } }
-    pub fn new(size: (i32, i32), prc: WNDPROC) -> Result<Window, HResultError> {
+    pub fn new(title: &str, size: (i32, i32), prc: WNDPROC) -> Result<Window, HResultError> {
         unsafe {
             let module = GetModuleHandleW(null());
             let class = WNDCLASSEXW {
@@ -91,12 +91,14 @@ impl Window {
             if RegisterClassExW(&class) == 0 {
                 return Err(HResultError::last_win32_error())
             }
+            let mut title_u16 = title.encode_utf16().collect::<Vec<_>>();
+            title_u16.push(0);
             let hwnd = CreateWindowExW(
                 WS_EX_COMPOSITED, //assuming we're going to use this with DirectX
                 &[66u16,0u16] as *const u16,
-                &[66u16,0u16] as *const u16,
+                title_u16.as_ptr(),
                 WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                -1, -1,
+                CW_USEDEFAULT, CW_USEDEFAULT,
                 size.0, size.1,
                 null_mut(), 
                 null_mut(), 
@@ -321,7 +323,7 @@ mod tests {
     #[test]
     #[ignore] //mutex with create_d2d_window
     fn create_window() {
-        let win = ::vgu::Window::new((200,200), Some(DefWindowProcW)).expect("creating Win32 window");
+        let win = ::vgu::Window::new("test", (200,200), Some(DefWindowProcW)).expect("creating Win32 window");
     }
 
     #[test]
@@ -331,7 +333,7 @@ mod tests {
 
     #[test]
     fn create_d2d_window() {
-        let win = Window::new((200,200), Some(DefWindowProcW)).expect("creating Win32 window");
+        let win = Window::new("test", (200,200), Some(DefWindowProcW)).expect("creating Win32 window");
         let fac = Factory::new().expect("creating Direct2D factory");
         let rt = WindowRenderTarget::new(fac, &win).expect("creating HwndRenderTarget");
         let bc = Brush::solid_color(rt, D2D1_COLOR_F { r: 0.8, g: 0.5, b: 0.1, a: 1.0 }).expect("creating Solid Color Brush");

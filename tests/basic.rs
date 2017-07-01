@@ -18,6 +18,6 @@ impl App for TestApp {
 #[test]
 fn basic() {
     let mut app = TestApp { };
-    let mut window = Window::new("Basic Window", 200, 200, &mut app).expect("create window!");
+    let mut window = Window::new("Basic Window", 512, 512, &mut app).expect("create window!");
     window.show();
 }
