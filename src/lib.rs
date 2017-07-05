@@ -5,6 +5,14 @@ use std::error::Error;
 #[cfg(target_os = "windows")]
 mod vgu;
 
+pub struct Point { x: f32, y: f32 }
+
+impl Point {
+    pub fn xy(x: f32, y: f32) -> Point {
+        Point { x, y }
+    }
+}
+
 pub struct Rect {
     x: f32, y: f32, w: f32, h: f32
 }
@@ -35,9 +43,18 @@ pub enum Event {
 pub struct RenderContext {
     d2fac: vgu::Factory,
     rt: vgu::WindowRenderTarget,
+    scb: vgu::Brush
 }
 
 impl RenderContext {
+    #[cfg(target_os = "windows")]
+    fn new(nwin: &vgu::Window) -> Result<RenderContext, Box<Error>> {
+        let d2fac = vgu::Factory::new()?;
+        let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &nwin)?;
+        let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
+        Ok(RenderContext { d2fac, rt, scb })
+    }
+
     pub fn clear(&mut self, col: Color) {
         #[cfg(target_os = "windows")]
         unsafe {
@@ -47,8 +64,25 @@ impl RenderContext {
     pub fn stroke_rect(&mut self, rect: Rect, col: Color, stroke_width: f32) {
         #[cfg(target_os = "windows")]
         unsafe {
-            //self.rt.DrawRectangle(&D2D1_RECT_F{left: rect.x, top: rect.y, right: rect.x+rect.w, bottom: rect.y+rect.h},
-                                  
+            self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
+            self.rt.DrawRectangle(&vgu::D2D1_RECT_F{left: rect.x, top: rect.y, right: rect.x+rect.w, bottom: rect.y+rect.h},
+                                  self.scb.p, stroke_width, std::ptr::null_mut());
+        }
+    }
+    pub fn fill_rect(&mut self, rect: Rect, col: Color) {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
+            self.rt.FillRectangle(&vgu::D2D1_RECT_F{left: rect.x, top: rect.y, right: rect.x+rect.w, bottom: rect.y+rect.h},
+                                  self.scb.p);
+        }
+    }
+    pub fn draw_line(&mut self, a: Point, b: Point, col: Color, stroke_width: f32) {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
+            self.rt.DrawLine(vgu::D2D1_POINT_2F{x:a.x, y:a.y}, vgu::D2D1_POINT_2F{x:b.x, y:b.y},
+                             self.scb.p, stroke_width, std::ptr::null_mut());
         }
     }
 }
@@ -101,11 +135,7 @@ impl<'app> Window<'app> {
         }; 
         let rx = {
             #[cfg(target_os = "windows")]
-            {
-                let d2fac = vgu::Factory::new()?;
-                let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &nwin)?;
-                RenderContext { d2fac, rt }
-            }
+            RenderContext::new(&nwin)?
         };
         let mut win = Window {
             app, rx,

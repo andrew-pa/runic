@@ -285,6 +285,11 @@ impl Brush {
             rt.CreateSolidColorBrush(&col, null_mut(), &mut brsh).into_result(|| Com::from_ptr(transmute(brsh)))
         }
     }
+
+    pub unsafe fn set_color(&self, col: D2D1_COLOR_F) {
+        let mut b: *mut ID2D1SolidColorBrush = transmute(self.p);
+        (*b).SetColor(&col);
+    }
 }
 
 pub type TextFactory = Com<IDWriteFactory>;
