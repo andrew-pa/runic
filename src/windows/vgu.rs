@@ -210,6 +210,10 @@ extern "system" {
     ) -> HRESULT;
 }
 
+extern "system" {
+    pub fn SetProcessDpiAwareness(value: DWORD) -> HRESULT;
+}
+
 pub type Factory = Com<ID2D1Factory>;
 
 impl Factory {
