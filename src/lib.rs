@@ -1,6 +1,7 @@
 use std::error::Error;
 
-pub struct Point { x: f32, y: f32 }
+#[derive(Copy,Clone,Debug)]
+pub struct Point { pub x: f32, pub y: f32 }
 
 impl Point {
     pub fn xy(x: f32, y: f32) -> Point {
@@ -8,6 +9,7 @@ impl Point {
     }
 }
 
+#[derive(Copy,Clone,Debug)]
 pub struct Rect {
     x: f32, y: f32, w: f32, h: f32
 }
@@ -16,8 +18,12 @@ impl Rect {
     pub fn xywh(x: f32, y: f32, w: f32, h: f32) -> Rect {
         Rect { x, y, w, h }
     }
+    pub fn pnwh(p: Point, w: f32, h: f32) -> Rect {
+        Rect { x: p.x, y: p.y, w, h }
+    }
 }
 
+#[derive(Copy,Clone,Debug)]
 pub struct Color {
     r: f32, g: f32, b: f32, a: f32
 }
@@ -28,10 +34,23 @@ impl Color {
     }
 }
 
+#[derive(Debug,Copy,Clone)]
+pub enum MouseButton {
+    Left, Right, Middle
+}
+
+#[derive(Debug)]
+pub enum KeyCode {
+}
+
 #[derive(Debug)]
 pub enum Event {
     Resize(u32,u32),
-    Key
+    MouseMove(Point, Option<MouseButton>),
+    MouseDown(Point, MouseButton),
+    MouseUp(Point, MouseButton),
+    Key(KeyCode, bool),
+    KeyChar(char, bool)
 }
 pub trait App {
     fn paint(&self, rx: &mut RenderContext);

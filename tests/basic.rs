@@ -1,4 +1,3 @@
-
 extern crate runic;
 
 use runic::*;

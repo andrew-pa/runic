@@ -52,6 +52,12 @@ pub struct Window<'app> {
     nwin: NativeWindow
 }
 
+impl Point {
+    fn from_lparam(l: vgu::LPARAM) -> Point {
+        Point { x: vgu::GET_X_LPARAM(l) as f32, y: vgu::GET_Y_LPARAM(l) as f32 }
+    }
+}
+
 unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu::WPARAM, l: vgu::LPARAM) -> vgu::LRESULT {
     use std::ptr::{null_mut,null};
     let pw = vgu::GetWindowLongPtrW(win, 0);
@@ -71,7 +77,21 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
             rwin.rx.rt.resize(w, h);
             rwin.app.event(Event::Resize(w, h));
             0
-        }
+        },
+        vgu::WM_MOUSEMOVE => {
+            rwin.app.event(Event::MouseMove(Point::from_lparam(l), 
+                                            if w & 0x0001 != 0 { Some(MouseButton::Left) }
+                                            else if w & 0x0002 != 0 { Some(MouseButton::Right) }
+                                            else if w & 0x0010 != 0 { Some(MouseButton::Middle) }
+                                            else { None }));
+            0
+        },
+        vgu::WM_LBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l), MouseButton::Left)); 0 },
+        vgu::WM_LBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l), MouseButton::Left)); 0 },
+        vgu::WM_RBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l), MouseButton::Right)); 0 },
+        vgu::WM_RBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l), MouseButton::Right)); 0 },
+        vgu::WM_MBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l), MouseButton::Middle)); 0 },
+        vgu::WM_MBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l), MouseButton::Middle)); 0 },
         vgu::WM_DESTROY => { vgu::PostQuitMessage(0); 1 }
         _ => { vgu::DefWindowProcW(win, msg, w, l) }
     }
@@ -79,12 +99,9 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
 
 impl<'app> Window<'app> {
     pub fn new(title: &str, width: usize, height: usize, app: &'app mut App) -> Result<Self, Box<Error>> {
-        let nwin = { 
-            vgu::Window::new(title, (width as i32, height as i32), Some(global_winproc))?
-        }; 
-        let rx = {
-            RenderContext::new(&nwin)?
-        };
+        unsafe { vgu::SetProcessDpiAwareness(2); }
+        let nwin = vgu::Window::new(title, (width as i32, height as i32), Some(global_winproc))?;
+        let rx = RenderContext::new(&nwin)?;
         let mut win = Window {
             app, rx,
             nwin 
