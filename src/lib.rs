@@ -34,6 +34,13 @@ impl Color {
     }
 }
 
+pub enum FontWeight {
+    Light, Regular, Bold
+}
+pub enum FontStyle {
+    Normal, Italic
+}
+
 #[derive(Debug,Copy,Clone)]
 pub enum MouseButton {
     Left, Right, Middle
@@ -53,6 +60,7 @@ pub enum Event {
     KeyChar(char, bool)
 }
 pub trait App {
+    fn init(&mut self, rx: &mut RenderContext) { }
     fn paint(&self, rx: &mut RenderContext);
     fn event(&mut self, e: Event);
 }
@@ -60,4 +68,4 @@ pub trait App {
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub use windows::{RenderContext, Window};
+pub use windows::{RenderContext, Window, Font, TextLayout};

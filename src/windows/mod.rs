@@ -2,17 +2,44 @@ use super::*;
 
 mod vgu;
 
+pub struct Font(vgu::Font);
+pub struct TextLayout(vgu::TextLayout);
+
 pub struct RenderContext {
     d2fac: vgu::Factory,
+    dwfac: vgu::TextFactory,
     rt: vgu::WindowRenderTarget,
     scb: vgu::Brush
 }
 
+impl Font {
+    pub fn new(rx: &mut RenderContext, name: String, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
+        Ok(Font(vgu::Font::new(rx.dwfac.clone(), name, 
+                               match weight {
+                                   FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
+                                   FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
+                                   FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD 
+                               }, 
+                               match style {
+                                    FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
+                                    FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
+                               }
+                , size)?))
+    }
+}
+
+impl TextLayout {
+    pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
+        Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
+    }
+}
+
 impl RenderContext {
     fn new(d2fac: vgu::Factory, nwin: &vgu::Window) -> Result<RenderContext, Box<Error>> {
+        let dwfac = vgu::TextFactory::new()?;
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &nwin)?;
         let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
-        Ok(RenderContext { d2fac, rt, scb })
+        Ok(RenderContext { d2fac, dwfac, rt, scb })
     }
 
     pub fn clear(&mut self, col: Color) {
@@ -41,7 +68,22 @@ impl RenderContext {
                              self.scb.p, stroke_width, std::ptr::null_mut());
         }
     }
-
+    pub fn draw_text(&mut self, rect: Rect, s: &str, col: Color, &Font(ref f): &Font) {
+        unsafe {
+            self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
+            let s16 = s.encode_utf16().collect::<Vec<u16>>();
+            self.rt.DrawText(s16.as_ptr(), s16.len() as u32,
+                f.p, &vgu::D2D1_RECT_F{left: rect.x, top: rect.y, right: rect.x+rect.w, bottom: rect.y+rect.h}, self.scb.p,
+                vgu::D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT, vgu::DWRITE_MEASURING_MODE_NATURAL);
+        }
+    }
+    pub fn draw_text_layout(&mut self, p: Point, &TextLayout(ref txl): &TextLayout, col: Color) {
+        unsafe {
+            self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
+            self.rt.DrawTextLayout(vgu::D2D1_POINT_2F{x:p.x, y:p.y}, txl.p, self.scb.p,
+                                   vgu::D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+        }
+    }
 }
 
 type NativeWindow = vgu::Window;
@@ -112,6 +154,7 @@ impl<'app> Window<'app> {
                 ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
                 ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
         let mut rx = RenderContext::new(d2fac, &nwin)?;
+        app.init(&mut rx);
         let mut win = Window {
             app, rx,
             nwin 
