@@ -15,7 +15,9 @@ impl App for TestApp {
     fn paint(&self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
         rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), "Hello, draw_text!", Color::rgb(0.3, 0.6, 0.2), self.font.as_ref().unwrap());
-        rx.draw_text_layout(Point::xy(8.0, 80.0), self.layout.as_ref().unwrap(), Color::rgb(0.6, 0.2, 0.3));
+        let mut layout = self.layout.clone().unwrap();
+        rx.draw_text_layout(Point::xy(8.0, 80.0), &layout, Color::rgb(0.6, 0.2, 0.3));
+        rx.stroke_rect(layout.bounds().offset(Point::xy(8.0, 80.0)), Color::rgb(0.9, 0.1, 0.2), 2.0);
     }
 
     fn event(&mut self, e: Event) {

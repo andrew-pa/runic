@@ -2,7 +2,9 @@ use super::*;
 
 mod vgu;
 
+#[derive(Clone)]
 pub struct Font(vgu::Font);
+#[derive(Clone)]
 pub struct TextLayout(vgu::TextLayout);
 
 pub struct RenderContext {
@@ -31,6 +33,14 @@ impl Font {
 impl TextLayout {
     pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
         Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
+    }
+    pub fn bounds(&mut self) -> Rect {
+        unsafe {
+            use std::mem::uninitialized;
+            let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
+            self.0.GetMetrics(&mut metrics);
+            Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
+        }
     }
 }
 

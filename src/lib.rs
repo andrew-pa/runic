@@ -21,6 +21,9 @@ impl Rect {
     pub fn pnwh(p: Point, w: f32, h: f32) -> Rect {
         Rect { x: p.x, y: p.y, w, h }
     }
+    pub fn offset(&self, p: Point) -> Rect {
+        Rect { x: self.x + p.x, y: self.y + p.y, ..*self }
+    }
 }
 
 #[derive(Copy,Clone,Debug)]
