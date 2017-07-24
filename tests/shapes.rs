@@ -19,7 +19,6 @@ impl App for TestApp {
 
 #[test]
 fn shapes() {
-    let mut app = TestApp { };
-    let mut window = Window::new("Shapes!", 512, 512, &mut app).expect("create window!");
+    let mut window = Window::new("Shapes!", 512, 512, |_| TestApp{}).expect("create window!");
     window.show();
 }

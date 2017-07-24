@@ -51,6 +51,12 @@ pub enum MouseButton {
 
 #[derive(Debug)]
 pub enum KeyCode {
+    Unknown,
+    Character(char), //characters as processed from OS
+    RawCharacter(char), //characters as printed on the keycaps
+    Left, Right, Up, Down,
+    Backspace, Enter, Escape, Ctrl,
+    Function(u8)
 }
 
 #[derive(Debug)]
@@ -60,10 +66,8 @@ pub enum Event {
     MouseDown(Point, MouseButton),
     MouseUp(Point, MouseButton),
     Key(KeyCode, bool),
-    KeyChar(char, bool)
 }
 pub trait App {
-    fn init(&mut self, rx: &mut RenderContext) { }
     fn paint(&self, rx: &mut RenderContext);
     fn event(&mut self, e: Event);
 }

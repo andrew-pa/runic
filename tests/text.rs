@@ -3,21 +3,26 @@ extern crate runic;
 use runic::*;
 
 struct TestApp {
-    font: Option<Font>, layout: Option<TextLayout>
+    font: Font, layout: TextLayout
+}
+
+impl TestApp {
+    fn new(rx: &mut RenderContext) -> TestApp {
+        let mut font = Font::new(rx, String::from("Arial"), 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
+        let layout = TextLayout::new(rx, "Hello, Text Layouts!😄", &font, 512.0, 512.0).expect("create text layout");
+        TestApp {
+            font, layout
+        }
+    }
 }
 
 impl App for TestApp {
-    fn init(&mut self, rx: &mut RenderContext) {
-        self.font = Some(Font::new(rx, String::from("Arial"), 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font"));
-        self.layout = Some(TextLayout::new(rx, "Hello, Text Layouts!😄", self.font.as_ref().unwrap(), 512.0, 512.0).expect("create text layout")); 
-    }
 
     fn paint(&self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
-        rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), "Hello, draw_text!", Color::rgb(0.3, 0.6, 0.2), self.font.as_ref().unwrap());
-        let mut layout = self.layout.clone().unwrap();
-        rx.draw_text_layout(Point::xy(8.0, 80.0), &layout, Color::rgb(0.6, 0.2, 0.3));
-        rx.stroke_rect(layout.bounds().offset(Point::xy(8.0, 80.0)), Color::rgb(0.9, 0.1, 0.2), 2.0);
+        rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), "Hello, draw_text!", Color::rgb(0.3, 0.6, 0.2), &self.font);
+        rx.draw_text_layout(Point::xy(8.0, 80.0), &self.layout, Color::rgb(0.6, 0.2, 0.3));
+        rx.stroke_rect(self.layout.bounds().offset(Point::xy(8.0, 80.0)), Color::rgb(0.9, 0.1, 0.2), 2.0);
     }
 
     fn event(&mut self, e: Event) {
@@ -26,7 +31,6 @@ impl App for TestApp {
 
 #[test]
 fn text() {
-    let mut app = TestApp { font: None, layout: None };
-    let mut window = Window::new("Text Render Test", 512, 512, &mut app).expect("create window!");
+    let mut window = Window::new("Text Render Test", 512, 512, TestApp::new).expect("create window!");
     window.show();
 }

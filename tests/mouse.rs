@@ -32,7 +32,6 @@ impl App for TestApp {
 
 #[test]
 fn mouse() {
-    let mut app = TestApp { mouse_loc: Point{x: 256.0, y: 256.0}, mouse_button: None };
-    let mut window = Window::new("Mouse Test", 512, 512, &mut app).expect("create window!");
+    let mut window = Window::new("Mouse Test", 512, 512, |_| TestApp { mouse_loc: Point{x: 256.0, y: 256.0}, mouse_button: None }).expect("create window!");
     window.show();
 }

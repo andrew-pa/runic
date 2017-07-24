@@ -2,9 +2,7 @@ use super::*;
 
 mod vgu;
 
-#[derive(Clone)]
 pub struct Font(vgu::Font);
-#[derive(Clone)]
 pub struct TextLayout(vgu::TextLayout);
 
 pub struct RenderContext {
@@ -20,7 +18,7 @@ impl Font {
                                match weight {
                                    FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
                                    FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
-                                   FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD 
+                                   FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD
                                }, 
                                match style {
                                     FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
@@ -34,11 +32,11 @@ impl TextLayout {
     pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
         Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
     }
-    pub fn bounds(&mut self) -> Rect {
+    pub fn bounds(&self) -> Rect {
         unsafe {
             use std::mem::uninitialized;
             let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
-            self.0.GetMetrics(&mut metrics);
+            (*self.0.p).GetMetrics(&mut metrics);
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
         }
     }
@@ -98,8 +96,8 @@ impl RenderContext {
 
 type NativeWindow = vgu::Window;
 
-pub struct Window<'app> {
-    app: &'app mut App,
+pub struct Window {
+    app: Box<App>,
     rx: RenderContext,
     nwin: NativeWindow
 }
@@ -112,6 +110,27 @@ impl Point {
         let mut dpi: (f32, f32) = (0.0, 0.0);
         unsafe { rx.rt.GetDpi(&mut dpi.0, &mut dpi.1); }
         Point { x: (self.x * 96.0) / dpi.0, y: (self.y * 96.0) / dpi.1 }
+    }
+}
+
+fn translate_keycode(w: vgu::WPARAM, l: vgu::LPARAM) -> KeyCode {
+    use KeyCode::*;
+    use self::vgu::*;
+    if w >= 0x30 && w <= 0x5a { //pick up ascii keys
+        return RawCharacter(std::char::from_u32(w as u32).expect("char"));
+    } else if w >= 0x70 && w <= 0x87 {
+        return Function((w - 0x6F) as u8);
+    }
+    match w as i32 {
+        VK_UP => Up,
+        VK_DOWN => Down,
+        VK_LEFT => Left,
+        VK_RIGHT => Right,
+        VK_RETURN => Enter,
+        VK_BACK => Backspace,
+        VK_ESCAPE => Escape,
+        VK_CONTROL => Ctrl,
+        _ => Unknown
     }
 }
 
@@ -149,13 +168,24 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
         vgu::WM_RBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Right)); 0 },
         vgu::WM_MBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle)); 0 },
         vgu::WM_MBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle)); 0 },
+
+        vgu::WM_KEYUP => { rwin.app.event(Event::Key(translate_keycode(w, l), false)); 0 },
+        vgu::WM_KEYDOWN => { rwin.app.event(Event::Key(translate_keycode(w, l), true)); 0 },
+        vgu::WM_CHAR => {
+            let v = [w as u16; 1];
+            use std::char::decode_utf16;
+            let cr = decode_utf16(v.iter().cloned()).map(|r| r.expect("valid char")).next().unwrap();
+            rwin.app.event(Event::Key(KeyCode::Character(cr), false));
+            0
+        },
+
         vgu::WM_DESTROY => { vgu::PostQuitMessage(0); 1 }
         _ => { vgu::DefWindowProcW(win, msg, w, l) }
     }
 }
 
-impl<'app> Window<'app> {
-    pub fn new(title: &str, width: usize, height: usize, app: &'app mut App) -> Result<Self, Box<Error>> {
+impl Window {
+    /*pub fn new(title: &str, width: usize, height: usize, app: &'app mut App) -> Result<Self, Box<Error>> {
         unsafe { vgu::SetProcessDpiAwareness(2); }
         let mut d2fac = vgu::Factory::new()?;
         let mut dpi: (f32, f32) = (0.0, 0.0);
@@ -165,6 +195,23 @@ impl<'app> Window<'app> {
                 ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
         let mut rx = RenderContext::new(d2fac, &nwin)?;
         app.init(&mut rx);
+        let mut win = Window {
+            app, rx,
+            nwin 
+        };
+        Ok(win)
+    }
+*/
+    pub fn new<A: App + 'static, F: FnOnce(&mut RenderContext)->A>(title: &str, width: usize, height: usize, appf: F) -> Result<Self, Box<Error>> {
+        unsafe { vgu::SetProcessDpiAwareness(2); }
+        let mut d2fac = vgu::Factory::new()?;
+        let mut dpi: (f32, f32) = (0.0, 0.0);
+        unsafe { d2fac.GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
+        let nwin = vgu::Window::new(title, (
+                ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
+                ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
+        let mut rx = RenderContext::new(d2fac, &nwin)?;
+        let mut app = Box::new(appf(&mut rx));
         let mut win = Window {
             app, rx,
             nwin 
