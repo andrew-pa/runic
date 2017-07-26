@@ -46,6 +46,9 @@ impl RenderContext {
     fn new(d2fac: vgu::Factory, nwin: &vgu::Window) -> Result<RenderContext, Box<Error>> {
         let dwfac = vgu::TextFactory::new()?;
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &nwin)?;
+        unsafe {
+        (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+        }
         let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
         Ok(RenderContext { d2fac, dwfac, rt, scb })
     }
@@ -92,6 +95,25 @@ impl RenderContext {
                                    vgu::D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
         }
     }
+
+    pub fn bounds(&mut self) -> Rect {
+        unsafe {
+            let mut s: vgu::D2D1_SIZE_F = std::mem::uninitialized();
+            self.rt.GetSize(&mut s);
+            Rect::xywh(0.0, 0.0, s.width, s.height)
+        }
+    }
+
+    pub fn translate(&mut self, p: Point) {
+        unsafe {
+            let s: vgu::D2D1_MATRIX_3X2_F = vgu::D2D1_MATRIX_3X2_F {
+                matrix: [ [1.0, 0.0],
+                          [0.0, 1.0],
+                          [p.x, p.y] ]
+            };
+            self.rt.SetTransform(&s);
+        }
+    }
 }
 
 type NativeWindow = vgu::Window;
@@ -113,7 +135,7 @@ impl Point {
     }
 }
 
-fn translate_keycode(w: vgu::WPARAM, l: vgu::LPARAM) -> KeyCode {
+fn translate_keycode(w: vgu::WPARAM, _: vgu::LPARAM) -> KeyCode {
     use KeyCode::*;
     use self::vgu::*;
     if w >= 0x30 && w <= 0x5a { //pick up ascii keys
@@ -135,7 +157,7 @@ fn translate_keycode(w: vgu::WPARAM, l: vgu::LPARAM) -> KeyCode {
 }
 
 unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu::WPARAM, l: vgu::LPARAM) -> vgu::LRESULT {
-    use std::ptr::{null_mut,null};
+    use std::ptr::null_mut;
     let pw = vgu::GetWindowLongPtrW(win, 0);
     if pw == 0 { return vgu::DefWindowProcW(win, msg, w, l); }
     let rwin: &mut Window = std::mem::transmute(pw);
@@ -151,7 +173,7 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
         vgu::WM_SIZE => {
             let (w, h) = (vgu::GET_X_LPARAM(l) as u32, vgu::GET_Y_LPARAM(l) as u32);
             rwin.rx.rt.resize(w, h);
-            rwin.app.event(Event::Resize(w, h));
+            rwin.app.event(Event::Resize(w, h, Point::xy(w as f32,h as f32).to_dip(&mut rwin.rx)));
             0
         },
         vgu::WM_MOUSEMOVE => {
@@ -185,23 +207,6 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
 }
 
 impl Window {
-    /*pub fn new(title: &str, width: usize, height: usize, app: &'app mut App) -> Result<Self, Box<Error>> {
-        unsafe { vgu::SetProcessDpiAwareness(2); }
-        let mut d2fac = vgu::Factory::new()?;
-        let mut dpi: (f32, f32) = (0.0, 0.0);
-        unsafe { d2fac.GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
-        let nwin = vgu::Window::new(title, (
-                ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
-                ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
-        let mut rx = RenderContext::new(d2fac, &nwin)?;
-        app.init(&mut rx);
-        let mut win = Window {
-            app, rx,
-            nwin 
-        };
-        Ok(win)
-    }
-*/
     pub fn new<A: App + 'static, F: FnOnce(&mut RenderContext)->A>(title: &str, width: usize, height: usize, appf: F) -> Result<Self, Box<Error>> {
         unsafe { vgu::SetProcessDpiAwareness(2); }
         let mut d2fac = vgu::Factory::new()?;
@@ -211,12 +216,11 @@ impl Window {
                 ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
                 ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
         let mut rx = RenderContext::new(d2fac, &nwin)?;
-        let mut app = Box::new(appf(&mut rx));
-        let mut win = Window {
+        let app = Box::new(appf(&mut rx));
+        Ok(Window {
             app, rx,
             nwin 
-        };
-        Ok(win)
+        })
     }
 
     pub fn show(&mut self)  {

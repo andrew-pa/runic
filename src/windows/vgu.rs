@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(non_upper_case_globals)]
 extern crate winapi;
 extern crate user32;
 extern crate kernel32;
@@ -11,8 +13,6 @@ use std::ops;
 use std::error::Error;
 use std::ptr::{null_mut, null};
 use std::mem::{size_of, uninitialized, transmute};
-use std::ffi::*;
-use std::ffi::OsString;
 
 #[derive(Debug)]
 pub struct HResultError {
@@ -145,9 +145,7 @@ pub struct Com<T> {
 
 impl<T> Com<T> {
     pub fn from_ptr(p: *mut T) -> Com<T> {
-        unsafe {
-            Com { punk: p as *mut IUnknown, p: p }
-        }
+        Com { punk: p as *mut IUnknown, p: p }
     }
 
     pub fn query_interface<U>(&self, id: IID) -> Result<Com<U>, HResultError> {
@@ -225,24 +223,7 @@ impl Factory {
         }
     }
 }
-/*
-pub type ColorF = D2D1_COLOR_F;
-impl ColorF {
-    fn rgba(r: f32, g: f32, b: f32, a: f32) -> ColorF {
-        D2D1_COLOR_F {r,g,b,a}
-    }
-}
 
-pub type RectF = D2D1_RECT_F;
-impl RectF {
-    fn xywh(x: f32, y: f32, w: f32, h: f32) -> RectF {
-        D2D1_RECT_F { left:x, right:x+w, top:y, bottom:y+h }
-    }
-    fn lrtb(l: f32, r: f32, t: f32, b: f32) -> RectF {
-        D2D1_RECT_F { left:l, right:r, top:t, bottom:b }
-    }
-}
-*/
 pub type Brush = Com<ID2D1Brush>;
 pub type Font = Com<IDWriteTextFormat>;
 
@@ -291,7 +272,7 @@ impl Brush {
     }
 
     pub unsafe fn set_color(&self, col: D2D1_COLOR_F) {
-        let mut b: *mut ID2D1SolidColorBrush = transmute(self.p);
+        let b: *mut ID2D1SolidColorBrush = transmute(self.p);
         (*b).SetColor(&col);
     }
 }
@@ -307,7 +288,7 @@ extern "system" {
 impl TextFactory {
     pub fn new() -> Result<TextFactory, HResultError> {
         unsafe {
-            let mut fac : *mut IDWriteFactory = uninitialized();
+            let fac : *mut IDWriteFactory = uninitialized();
             DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &UuidOfIDWriteFactory, transmute(&fac)).into_result(|| Com::from_ptr(transmute(fac)))
         }
     }
