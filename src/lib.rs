@@ -48,6 +48,9 @@ impl Rect {
     pub fn offset(&self, p: Point) -> Rect {
         Rect { x: self.x + p.x, y: self.y + p.y, ..*self }
     }
+    pub fn contains(&self, p: Point) -> bool {
+        p.x >= self.x && p.y >= self.y && p.x <= self.x+self.w && p.y <= self.y+self.h
+    }
 }
 
 #[derive(Copy,Clone,Debug)]
