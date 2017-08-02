@@ -6,7 +6,7 @@ struct TestApp {
 }
 
 impl App for TestApp {
-    fn paint(&self, rx: &mut RenderContext) {
+    fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
         rx.stroke_rect(Rect::xywh(8.0, 8.0, 100.0, 100.0), Color::rgb(0.4, 0.05, 1.0), 8.0);
         rx.fill_rect(Rect::xywh(116.0, 8.0, 100.0, 100.0), Color::rgb(0.4, 0.05, 1.0));

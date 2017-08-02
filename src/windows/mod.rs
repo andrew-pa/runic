@@ -1,5 +1,8 @@
 use super::*;
 
+// perhaps collapse this so there is only one level of indirection between the top level
+// abstraction and Direct2D? maybe some of the really gross Win32 stuff could be split into a
+// seperate module but this extra module is a bit much
 mod vgu;
 
 pub struct Font(vgu::Font);
@@ -28,16 +31,24 @@ impl Font {
     }
 }
 
+use std::mem::uninitialized;
 impl TextLayout {
     pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
         Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
     }
     pub fn bounds(&self) -> Rect {
         unsafe {
-            use std::mem::uninitialized;
             let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
             (*self.0.p).GetMetrics(&mut metrics);
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
+        }
+    }
+    pub fn char_bounds(&self, index: usize) -> Rect {
+        unsafe {
+            let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
+            let (mut x, mut y) = (0.0, 0.0);
+            (*self.0.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, &mut ht);
+            Rect::xywh(x, y, ht.width, ht.height)
         }
     }
 }

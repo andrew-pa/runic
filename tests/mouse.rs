@@ -8,7 +8,7 @@ struct TestApp {
 }
 
 impl App for TestApp {
-    fn paint(&self, rx: &mut RenderContext) {
+    fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
         rx.fill_rect(Rect::pnwh(self.mouse_loc, 32.0, 32.0), self.mouse_button.map_or(Color::rgb(0.2, 0.2, 0.2), |v| match v {
             MouseButton::Left => Color::rgb(0.8, 0.2, 0.0),

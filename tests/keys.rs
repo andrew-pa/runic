@@ -17,7 +17,7 @@ impl TestApp {
 
 impl App for TestApp {
 
-    fn paint(&self, rx: &mut RenderContext) {
+    fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
         rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), &format!("last char: {},\nlast key: {:?},\nkey down?: {}", self.last_char, self.last_key, self.key_down), Color::rgb(0.2, 0.2, 0.2), &self.font);
     }
