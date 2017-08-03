@@ -8,7 +8,7 @@ struct TestApp {
 
 impl TestApp {
     fn new(rx: &mut RenderContext) -> TestApp {
-        let mut font = Font::new(rx, String::from("Arial"), 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
+        let mut font = Font::new(rx, "Arial", 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
         let layout = TextLayout::new(rx, "Hello, 😌Text Layouts!😄", &font, 512.0, 512.0).expect("create text layout");
         TestApp {
             font, layout

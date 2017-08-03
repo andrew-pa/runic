@@ -16,7 +16,7 @@ pub struct RenderContext {
 }
 
 impl Font {
-    pub fn new(rx: &mut RenderContext, name: String, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
+    pub fn new(rx: &mut RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
         Ok(Font(vgu::Font::new(rx.dwfac.clone(), name, 
                                match weight {
                                    FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,

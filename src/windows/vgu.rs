@@ -295,7 +295,7 @@ impl TextFactory {
 }
 
 impl Font {
-    pub fn new(mut fac: TextFactory, name: String, weight: DWRITE_FONT_WEIGHT, style: DWRITE_FONT_STYLE, size: f32) -> Result<Font, HResultError> {
+    pub fn new(mut fac: TextFactory, name: &str, weight: DWRITE_FONT_WEIGHT, style: DWRITE_FONT_STYLE, size: f32) -> Result<Font, HResultError> {
         unsafe {
             let mut txf: *mut IDWriteTextFormat = uninitialized();
             fac.CreateTextFormat(name.encode_utf16().collect::<Vec<u16>>().as_ptr(), null_mut(), 
