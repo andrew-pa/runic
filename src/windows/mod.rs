@@ -1,4 +1,5 @@
 use super::*;
+use std::mem::uninitialized;
 
 // perhaps collapse this so there is only one level of indirection between the top level
 // abstraction and Direct2D? maybe some of the really gross Win32 stuff could be split into a
@@ -29,9 +30,9 @@ impl Font {
                                }
                 , size)?))
     }
+
 }
 
-use std::mem::uninitialized;
 impl TextLayout {
     pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
         Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
@@ -163,6 +164,7 @@ fn translate_keycode(w: vgu::WPARAM, _: vgu::LPARAM) -> KeyCode {
         VK_BACK => Backspace,
         VK_ESCAPE => Escape,
         VK_CONTROL => Ctrl,
+        VK_DELETE => Delete,
         _ => Unknown
     }
 }

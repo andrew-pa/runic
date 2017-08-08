@@ -85,7 +85,7 @@ pub enum KeyCode {
     Character(char), //characters as processed from OS
     RawCharacter(char), //characters as printed on the keycaps
     Left, Right, Up, Down,
-    Backspace, Enter, Escape, Ctrl,
+    Backspace, Enter, Escape, Ctrl, Delete,
     Function(u8)
 }
 

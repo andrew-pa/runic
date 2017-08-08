@@ -2,6 +2,7 @@ extern crate runic;
 
 use runic::*;
 
+
 struct TestApp {
     font: Font, last_char: char, last_key: KeyCode, key_down: bool 
 }
