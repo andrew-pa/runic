@@ -1,13 +1,14 @@
 use super::*;
 use std::mem::uninitialized;
+use std::ptr::null_mut;
 
 // perhaps collapse this so there is only one level of indirection between the top level
 // abstraction and Direct2D? maybe some of the really gross Win32 stuff could be split into a
 // seperate module but this extra module is a bit much
 mod vgu;
 
-pub struct Font(vgu::Font);
-pub struct TextLayout(vgu::TextLayout);
+pub type Font = vgu::Com<vgu::IDWriteTextFormat>;
+pub type TextLayout = vgu::Com<vgu::IDWriteTextLayout>;
 
 pub struct RenderContext {
     d2fac: vgu::Factory,
@@ -18,29 +19,40 @@ pub struct RenderContext {
 
 impl Font {
     pub fn new(rx: &mut RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
-        Ok(Font(vgu::Font::new(rx.dwfac.clone(), name, 
-                               match weight {
-                                   FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
-                                   FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
-                                   FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD
-                               }, 
-                               match style {
-                                    FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
-                                    FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
-                               }
-                , size)?))
+        use windows::vgu::*;
+        unsafe {
+            let mut txf: *mut vgu::IDWriteTextFormat = uninitialized();
+            rx.dwfac.CreateTextFormat(name.encode_utf16().collect::<Vec<u16>>().as_ptr(), null_mut(), 
+                                 match weight {
+                                     FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
+                                     FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
+                                     FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD
+                                 },
+                                 match style {
+                                     FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
+                                     FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
+                                 }, vgu::DWRITE_FONT_STRETCH_NORMAL, size, [0u16].as_ptr(), &mut txf)
+            .into_result(|| vgu::Com::from_ptr(txf)).map_err(Into::into)
+        }
     }
 
 }
 
 impl TextLayout {
-    pub fn new(rx: &mut RenderContext, text: &str, &Font(ref f): &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
-        Ok(TextLayout(vgu::TextLayout::new(rx.dwfac.clone(), text, f.clone(), width, height)?))
+    pub fn new(rx: &mut RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
+        use windows::vgu::*;
+        use std::mem::transmute;
+        unsafe {
+            let mut lo: *mut IDWriteTextLayout = uninitialized();
+            let txd = text.encode_utf16().collect::<Vec<u16>>();
+            rx.dwfac.CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, &mut lo)
+                .into_result(|| Com::from_ptr(transmute(lo))).map_err(Into::into)
+        }
     }
     pub fn bounds(&self) -> Rect {
         unsafe {
             let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
-            (*self.0.p).GetMetrics(&mut metrics);
+            (*self.p).GetMetrics(&mut metrics);
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
         }
     }
@@ -48,7 +60,7 @@ impl TextLayout {
         unsafe {
             let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
             let (mut x, mut y) = (0.0, 0.0);
-            (*self.0.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, &mut ht);
+            (*self.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, &mut ht);
             Rect::xywh(x, y, ht.width, ht.height)
         }
     }
@@ -59,7 +71,7 @@ impl RenderContext {
         let dwfac = vgu::TextFactory::new()?;
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &nwin)?;
         unsafe {
-        (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
+            (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         }
         let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
         Ok(RenderContext { d2fac, dwfac, rt, scb })
@@ -91,7 +103,7 @@ impl RenderContext {
                              self.scb.p, stroke_width, std::ptr::null_mut());
         }
     }
-    pub fn draw_text(&mut self, rect: Rect, s: &str, col: Color, &Font(ref f): &Font) {
+    pub fn draw_text(&mut self, rect: Rect, s: &str, col: Color, f: &Font) {
         unsafe {
             self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
             let s16 = s.encode_utf16().collect::<Vec<u16>>();
@@ -100,7 +112,7 @@ impl RenderContext {
                 vgu::D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT, vgu::DWRITE_MEASURING_MODE_NATURAL);
         }
     }
-    pub fn draw_text_layout(&mut self, p: Point, &TextLayout(ref txl): &TextLayout, col: Color) {
+    pub fn draw_text_layout(&mut self, p: Point, txl: &TextLayout, col: Color) {
         unsafe {
             self.scb.set_color(vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a});
             self.rt.DrawTextLayout(vgu::D2D1_POINT_2F{x:p.x, y:p.y}, txl.p, self.scb.p,

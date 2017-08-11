@@ -179,8 +179,8 @@ impl RenderContext {
 }
 
 // if I want to do this well:
-// Split RenderContext and Window apart
+// Split RenderContext and Window apart into seperate modules
 // Write Direct2D and Cairo/Pango RenderContext modules
 // Write Win32, Cocoa, GTK, etc... Window modules
 // Provide a system to choose between them
-// Define passthrough structs to prove documentation targets and a unified single spec of APIs
+// ✓ Define passthrough structs to prove documentation targets and a unified single spec of APIs

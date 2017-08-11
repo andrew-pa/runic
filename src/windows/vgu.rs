@@ -38,7 +38,7 @@ impl fmt::Display for HResultError {
     }
 }
 
-trait IntoResult<E> {
+pub trait IntoResult<E> {
     fn into_result<T, F: FnOnce() -> T>(self, f: F) -> Result<T, E>; 
 }
 
@@ -225,7 +225,6 @@ impl Factory {
 }
 
 pub type Brush = Com<ID2D1Brush>;
-pub type Font = Com<IDWriteTextFormat>;
 
 pub type WindowRenderTarget = Com<ID2D1HwndRenderTarget>;
 
@@ -290,30 +289,6 @@ impl TextFactory {
         unsafe {
             let fac : *mut IDWriteFactory = uninitialized();
             DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &UuidOfIDWriteFactory, transmute(&fac)).into_result(|| Com::from_ptr(transmute(fac)))
-        }
-    }
-}
-
-impl Font {
-    pub fn new(mut fac: TextFactory, name: &str, weight: DWRITE_FONT_WEIGHT, style: DWRITE_FONT_STYLE, size: f32) -> Result<Font, HResultError> {
-        unsafe {
-            let mut txf: *mut IDWriteTextFormat = uninitialized();
-            fac.CreateTextFormat(name.encode_utf16().collect::<Vec<u16>>().as_ptr(), null_mut(), 
-                                 weight, style, DWRITE_FONT_STRETCH_NORMAL, size, 
-                                 [0u16].as_ptr(), &mut txf).into_result(|| Com::from_ptr(txf))
-        }
-    }
-}
-
-pub type TextLayout = Com<IDWriteTextLayout>;
-
-impl TextLayout {
-    pub fn new(mut fac: TextFactory, text: &str, font: Font, width: f32, height: f32) -> Result<TextLayout, HResultError> {
-        unsafe {
-            let mut lo: *mut IDWriteTextLayout = uninitialized();
-            let txd = text.encode_utf16().collect::<Vec<u16>>();
-            fac.CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, font.p, width, height, &mut lo)
-                .into_result(|| Com::from_ptr(transmute(lo)))
         }
     }
 }
