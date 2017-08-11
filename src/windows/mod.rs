@@ -108,10 +108,10 @@ impl RenderContext {
         }
     }
 
-    pub fn bounds(&mut self) -> Rect {
+    pub fn bounds(&self) -> Rect {
         unsafe {
             let mut s: vgu::D2D1_SIZE_F = std::mem::uninitialized();
-            self.rt.GetSize(&mut s);
+            (*self.rt.p).GetSize(&mut s);
             Rect::xywh(0.0, 0.0, s.width, s.height)
         }
     }
@@ -132,7 +132,7 @@ type NativeWindow = vgu::Window;
 
 pub struct Window {
     app: Box<App>,
-    rx: RenderContext,
+    rx: super::RenderContext,
     nwin: NativeWindow
 }
 
@@ -140,9 +140,9 @@ impl Point {
     fn from_lparam(l: vgu::LPARAM) -> Point {
         Point { x: vgu::GET_X_LPARAM(l) as f32, y: vgu::GET_Y_LPARAM(l) as f32 }
     }
-    pub fn to_dip(&self, rx: &mut RenderContext) -> Point {
+    pub fn to_dip(&self, rx: &mut super::RenderContext) -> Point {
         let mut dpi: (f32, f32) = (0.0, 0.0);
-        unsafe { rx.rt.GetDpi(&mut dpi.0, &mut dpi.1); }
+        unsafe { rx.0.rt.GetDpi(&mut dpi.0, &mut dpi.1); }
         Point { x: (self.x * 96.0) / dpi.0, y: (self.y * 96.0) / dpi.1 }
     }
 }
@@ -178,14 +178,14 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
     match msg {
         vgu::WM_CREATE => { vgu::SetWindowLongPtrW(win, 0, 0); 0 }
         vgu::WM_PAINT => {
-            rwin.rx.rt.BeginDraw();
+            rwin.rx.0.rt.BeginDraw();
             rwin.app.paint(&mut rwin.rx);
-            rwin.rx.rt.EndDraw(null_mut(), null_mut());
+            rwin.rx.0.rt.EndDraw(null_mut(), null_mut());
             1
         }
         vgu::WM_SIZE => {
             let (w, h) = (vgu::GET_X_LPARAM(l) as u32, vgu::GET_Y_LPARAM(l) as u32);
-            rwin.rx.rt.resize(w, h);
+            rwin.rx.0.rt.resize(w, h);
             rwin.app.event(Event::Resize(w, h, Point::xy(w as f32,h as f32).to_dip(&mut rwin.rx)));
             0
         },
@@ -220,7 +220,7 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
 }
 
 impl Window {
-    pub fn new<A: App + 'static, F: FnOnce(&mut RenderContext)->A>(title: &str, width: usize, height: usize, appf: F) -> Result<Self, Box<Error>> {
+    pub fn new<A: App + 'static, F: FnOnce(&mut super::RenderContext)->A>(title: &str, width: usize, height: usize, appf: F) -> Result<Self, Box<Error>> {
         unsafe { vgu::SetProcessDpiAwareness(2); }
         let mut d2fac = vgu::Factory::new()?;
         let mut dpi: (f32, f32) = (0.0, 0.0);
@@ -228,7 +228,7 @@ impl Window {
         let nwin = vgu::Window::new(title, (
                 ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
                 ((height as f32) * (dpi.1 / 96.0)).ceil() as i32), Some(global_winproc))?;
-        let mut rx = RenderContext::new(d2fac, &nwin)?;
+        let mut rx = RenderContext(RenderContext::new(d2fac, &nwin)?);
         let app = Box::new(appf(&mut rx));
         Ok(Window {
             app, rx,
