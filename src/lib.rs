@@ -59,9 +59,12 @@ pub struct Color {
 }
 
 impl Color {
+    /// Create an opaque color
     pub fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
     }
+
+    /// Create a color with transparency
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
@@ -79,26 +82,47 @@ pub enum MouseButton {
     Left, Right, Middle
 }
 
+/// A key on the keyboard
+///
+/// There is some overlap between some of these variants, it is likely that your App will receive
+/// multiple events with each version
 #[derive(Debug,Copy,Clone)]
 pub enum KeyCode {
     Unknown,
-    Character(char), //characters as processed from OS
+    /// Characters as processed by the operating system
+    Character(char),
+    /// Characters as printed on the keycaps, no processing
     RawCharacter(char), //characters as printed on the keycaps
     Left, Right, Up, Down,
     Backspace, Enter, Escape, Ctrl, Delete,
+    /// Function keys, numbered like keys, starting at 1 = F1
     Function(u8)
 }
 
+/// An event from the system
 #[derive(Copy,Clone,Debug)]
 pub enum Event {
+    /// The window has resized
+    ///
+    /// The first two u32s are the width and height in pixels, and the Point is the width/height in
+    /// device independent units
     Resize(u32, u32, Point),
+
+    /// The mouse has moved, with an optional mouse down. Coords in DIPs
     MouseMove(Point, Option<MouseButton>),
+    /// A mouse button has been depressed. Coords in DIPs
     MouseDown(Point, MouseButton),
+    /// A mouse button has been released. Coords in DIPs
     MouseUp(Point, MouseButton),
+    /// A key event. True represents pressed, false released
     Key(KeyCode, bool),
 }
+
+/// The App trait represents the client rendering and event handling code to the Window
 pub trait App {
+    /// Re-render the app contents/interface
     fn paint(&mut self, rx: &mut RenderContext);
+    /// Handle an event
     fn event(&mut self, e: Event);
 }
 
@@ -177,6 +201,7 @@ impl RenderContext {
     /// Calculate the size of the area being rendered into
     pub fn bounds(&self) -> Rect { self.0.bounds() }
 }
+
 
 // if I want to do this well:
 // Split RenderContext and Window apart into seperate modules
