@@ -148,6 +148,11 @@ pub struct Window {
     nwin: NativeWindow
 }
 
+#[derive(Clone)]
+pub struct WindowRef {
+    nwin: vgu::HWND
+}
+
 impl Point {
     fn from_lparam(l: vgu::LPARAM) -> Point {
         Point { x: vgu::GET_X_LPARAM(l) as f32, y: vgu::GET_Y_LPARAM(l) as f32 }
@@ -186,6 +191,7 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
     let pw = vgu::GetWindowLongPtrW(win, 0);
     if pw == 0 { return vgu::DefWindowProcW(win, msg, w, l); }
     let rwin: &mut Window = std::mem::transmute(pw);
+    let rf = rwin.make_ref();
     assert_eq!(win, rwin.nwin.hndl);
     match msg {
         vgu::WM_CREATE => { vgu::SetWindowLongPtrW(win, 0, 0); 0 }
@@ -198,7 +204,7 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
         vgu::WM_SIZE => {
             let (w, h) = (vgu::GET_X_LPARAM(l) as u32, vgu::GET_Y_LPARAM(l) as u32);
             rwin.rx.0.rt.resize(w, h);
-            rwin.app.event(Event::Resize(w, h, Point::xy(w as f32,h as f32).to_dip(&mut rwin.rx)));
+            rwin.app.event(Event::Resize(w, h, Point::xy(w as f32,h as f32).to_dip(&mut rwin.rx)), rf);
             0
         },
         vgu::WM_MOUSEMOVE => {
@@ -206,23 +212,23 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
                                             if w & 0x0001 != 0 { Some(MouseButton::Left) }
                                             else if w & 0x0002 != 0 { Some(MouseButton::Right) }
                                             else if w & 0x0010 != 0 { Some(MouseButton::Middle) }
-                                            else { None }));
+                                            else { None }), rf);
             0
         },
-        vgu::WM_LBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Left)); 0 },
-        vgu::WM_LBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Left)); 0 },
-        vgu::WM_RBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Right)); 0 },
-        vgu::WM_RBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Right)); 0 },
-        vgu::WM_MBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle)); 0 },
-        vgu::WM_MBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle)); 0 },
+        vgu::WM_LBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Left), rf); 0 },
+        vgu::WM_LBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Left), rf); 0 },
+        vgu::WM_RBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Right), rf); 0 },
+        vgu::WM_RBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Right), rf); 0 },
+        vgu::WM_MBUTTONDOWN => { rwin.app.event(Event::MouseDown(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle), rf); 0 },
+        vgu::WM_MBUTTONUP => { rwin.app.event(Event::MouseUp(Point::from_lparam(l).to_dip(&mut rwin.rx), MouseButton::Middle), rf); 0 },
 
-        vgu::WM_KEYUP => { rwin.app.event(Event::Key(translate_keycode(w, l), false)); 0 },
-        vgu::WM_KEYDOWN => { rwin.app.event(Event::Key(translate_keycode(w, l), true)); 0 },
+        vgu::WM_KEYUP => { rwin.app.event(Event::Key(translate_keycode(w, l), false), rf); 0 },
+        vgu::WM_KEYDOWN => { rwin.app.event(Event::Key(translate_keycode(w, l), true), rf); 0 },
         vgu::WM_CHAR => {
             let v = [w as u16; 1];
             use std::char::decode_utf16;
             let cr = decode_utf16(v.iter().cloned()).map(|r| r.expect("valid char")).next().unwrap();
-            rwin.app.event(Event::Key(KeyCode::Character(cr), false));
+            rwin.app.event(Event::Key(KeyCode::Character(cr), false), rf);
             0
         },
 
@@ -248,10 +254,22 @@ impl Window {
         })
     }
 
+    fn make_ref(&self) -> super::WindowRef {
+        WindowRef(WindowRef { nwin: self.nwin.hndl })
+    }
+
     pub fn show(&mut self)  {
         unsafe {
             vgu::SetWindowLongPtrW(self.nwin.hndl, 0, std::mem::transmute(self));
             vgu::Window::message_loop();
+        }
+    }
+}
+
+impl WindowRef {
+    pub fn quit(&self) {
+        unsafe {
+            vgu::PostMessageW(self.nwin, vgu::WM_CLOSE, 0, 0);
         }
     }
 }

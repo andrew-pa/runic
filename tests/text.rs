@@ -27,7 +27,7 @@ impl App for TestApp {
         rx.stroke_rect(cb.offset(Point::xy(8.0, 80.0)), Color::rgb(0.0, 0.6, 0.0), 2.0);
     }
 
-    fn event(&mut self, e: Event) {
+    fn event(&mut self, e: Event, _: WindowRef) {
     }
 }
 

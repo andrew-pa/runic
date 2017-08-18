@@ -17,7 +17,7 @@ impl App for TestApp {
         }));
     }
 
-    fn event(&mut self, e: Event) {
+    fn event(&mut self, e: Event, _: WindowRef) {
         match e {
             Event::MouseMove(p, mb) => {
                 self.mouse_loc = p;

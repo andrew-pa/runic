@@ -123,7 +123,7 @@ pub trait App {
     /// Re-render the app contents/interface
     fn paint(&mut self, rx: &mut RenderContext);
     /// Handle an event
-    fn event(&mut self, e: Event);
+    fn event(&mut self, e: Event, win: WindowRef);
 }
 
 #[cfg(target_os = "windows")]
@@ -132,6 +132,11 @@ mod windows;
 use windows as imp;//::{RenderContext, Window, Font, TextLayout};
 
 pub struct Window(imp::Window);
+
+#[derive(Clone)]
+/// Represents a (weak) reference to a window so that it can be notified of events by the app
+pub struct WindowRef(imp::WindowRef);
+
 pub struct Font(imp::Font);
 pub struct TextLayout(imp::TextLayout);
 pub struct RenderContext(imp::RenderContext);
@@ -147,6 +152,11 @@ impl Window {
 
     /// Run the message loop for this window. This function doesn't return until the window exits
     pub fn show(&mut self) { self.0.show(); }
+}
+
+impl WindowRef {
+    /// Request the window to quit. This will cause `Window::show` to return
+    pub fn quit(&self) { self.0.quit() }
 }
 
 impl Font {

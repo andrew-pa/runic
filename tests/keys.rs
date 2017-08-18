@@ -23,7 +23,7 @@ impl App for TestApp {
         rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), &format!("last char: {},\nlast key: {:?},\nkey down?: {}", self.last_char, self.last_key, self.key_down), Color::rgb(0.2, 0.2, 0.2), &self.font);
     }
 
-    fn event(&mut self, e: Event) {
+    fn event(&mut self, e: Event, _: WindowRef) {
         match e {
             Event::Key(KeyCode::Character(c), kd) => { self.last_char = c; self.key_down = kd; },
             Event::Key(kc, kd) => { self.last_key = kc; self.key_down = kd; },

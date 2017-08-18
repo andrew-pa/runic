@@ -11,7 +11,7 @@ impl App for TestApp {
         rx.stroke_rect(Rect::xywh(64.0, 64.0, 100.0, 100.0), Color::rgb(0.4, 0.05, 1.0), 8.0);
     }
 
-    fn event(&mut self, e: Event) {
+    fn event(&mut self, e: Event, _: WindowRef) {
     }
 }
 

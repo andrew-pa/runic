@@ -13,7 +13,7 @@ impl App for TestApp {
         rx.draw_line(Point::xy(16.0, 16.0), Point::xy(94.0, 94.0), Color::rgb(0.0, 0.0, 0.6), 3.0);
     }
 
-    fn event(&mut self, e: Event) {
+    fn event(&mut self, e: Event, _: WindowRef) {
     }
 }
 
