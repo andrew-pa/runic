@@ -31,7 +31,7 @@ impl Font {
                                  match style {
                                      FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
                                      FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
-                                 }, vgu::DWRITE_FONT_STRETCH_NORMAL, size, [0u16].as_ptr(), &mut txf)
+                                 }, vgu::DWRITE_FONT_STRETCH_NORMAL, size, [101u16, 110u16, 45u16, 117u16, 115u16, 0u16, 0u16].as_ptr() /*'en-us'*/, &mut txf)
             .into_result(|| vgu::Com::from_ptr(txf)).map_err(Into::into)
         }
     }
