@@ -22,7 +22,10 @@ impl Font {
         use windows::vgu::*;
         unsafe {
             let mut txf: *mut vgu::IDWriteTextFormat = uninitialized();
-            rx.dwfac.CreateTextFormat(name.encode_utf16().collect::<Vec<u16>>().as_ptr(), null_mut(), 
+            let mut font_name = name.encode_utf16().collect::<Vec<u16>>();
+            font_name.push(0u16);
+            font_name.push(0u16);
+            rx.dwfac.CreateTextFormat(font_name.as_ptr(), null_mut(), 
                                  match weight {
                                      FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
                                      FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
