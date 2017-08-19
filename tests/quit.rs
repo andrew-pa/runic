@@ -20,7 +20,7 @@ impl App for TestApp {
 }
 
 #[test]
-fn basic() {
+fn quit() {
     let mut window = Window::new("Quit Test: Press Escape to Quit", 512, 512, |_| TestApp{}).expect("create window!");
     window.show();
 }

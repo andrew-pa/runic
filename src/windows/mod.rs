@@ -47,7 +47,9 @@ impl TextLayout {
         use std::mem::transmute;
         unsafe {
             let mut lo: *mut IDWriteTextLayout = uninitialized();
-            let txd = text.encode_utf16().collect::<Vec<u16>>();
+            let mut txd = text.encode_utf16().collect::<Vec<u16>>();
+            txd.push(0u16);
+            txd.push(0u16);
             rx.dwfac.CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, &mut lo)
                 .into_result(|| Com::from_ptr(transmute(lo))).map_err(Into::into)
         }
