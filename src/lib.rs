@@ -107,6 +107,11 @@ mod windows;
 #[cfg(target_os = "windows")]
 use windows as imp;//::{RenderContext, Window, Font, TextLayout};
 
+#[cfg(target_os = "linux")]
+mod unix;
+#[cfg(target_os = "linux")]
+use unix as imp;
+
 pub struct Window(imp::Window);
 pub struct Font(imp::Font);
 pub struct TextLayout(imp::TextLayout);

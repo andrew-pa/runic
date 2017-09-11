@@ -9,3 +9,9 @@ authors = ["Andrew <andrew.pa@outlook.com>"]
 winapi = "0.2"
 user32-sys = "0.1"
 kernel32-sys = "0.2"
+
+[target.'cfg(unix)'.dependencies]
+gtk = { version = "0.1", features = ["v3_10"] }
+cairo-rs = "0.1"
+gdk-rs = "0.1"
+
