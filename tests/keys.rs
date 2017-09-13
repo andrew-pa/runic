@@ -1,17 +1,19 @@
 extern crate runic;
+extern crate winit;
 
 use runic::*;
+use winit::*;
 
 
 struct TestApp {
-    font: Font, last_char: char, last_key: KeyCode, key_down: bool 
+    font: Font, last_kbi: Option<KeyboardInput>
 }
 
 impl TestApp {
     fn new(rx: &mut RenderContext) -> TestApp {
-        let font = Font::new(rx, "Arial", 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
+        let font = rx.new_font("Arial", 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
         TestApp {
-            font, last_char: ' ', last_key: KeyCode::Unknown, key_down: false 
+            font, last_kbi: None
         }
     }
 }
@@ -20,20 +22,26 @@ impl App for TestApp {
 
     fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
-        rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), &format!("last char: {},\nlast key: {:?},\nkey down?: {}", self.last_char, self.last_key, self.key_down), Color::rgb(0.2, 0.2, 0.2), &self.font);
+        rx.set_color(Color::rgb(0.2, 0.2, 0.2));
+        rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), &format!("{:?}", self.last_kbi), &self.font);
     }
 
-    fn event(&mut self, e: Event, _: WindowRef) {
+    fn event(&mut self, e: Event) -> bool{
         match e {
-            Event::Key(KeyCode::Character(c), kd) => { self.last_char = c; self.key_down = kd; },
-            Event::Key(kc, kd) => { self.last_key = kc; self.key_down = kd; },
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input: kbi, .. }, .. } => {
+                self.last_kbi = Some(kbi);
+            }
             _ => {}
         }
+        false
     }
 }
 
 #[test]
 fn keys() {
-    let mut window = Window::new("Keyboard Test", 512, 512, TestApp::new).expect("create window!");
-    window.show();
+    let mut evl = EventsLoop::new();
+    let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Keyboard Test").build(&evl).expect("create window!");
+    let mut rx = RenderContext::new(&window).expect("create render context!");
+    let mut app = TestApp::new(&mut rx);
+    app.run(&mut rx, &mut evl);
 }
