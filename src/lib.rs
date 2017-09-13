@@ -94,7 +94,7 @@ pub enum KeyCode {
     /// Characters as printed on the keycaps, no processing
     RawCharacter(char), //characters as printed on the keycaps
     Left, Right, Up, Down,
-    Backspace, Enter, Escape, Ctrl, Delete,
+    Backspace, Enter, Escape, Ctrl, Delete, Tab,
     /// Function keys, numbered like keys, starting at 1 = F1
     Function(u8)
 }
@@ -161,15 +161,15 @@ impl WindowRef {
 
 impl Font {
     /// Create a new font, looking the name up in the system font registery
-    pub fn new(rx: &mut RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
-        imp::Font::new(&mut rx.0, name, size, weight, style).map(Font)
+    pub fn new(rx: &RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
+        imp::Font::new(&rx.0, name, size, weight, style).map(Font)
     }
 }
 
 impl TextLayout {
     /// Create a new text layout. The text will be wrapped to `width` and `height`
-    pub fn new(rx: &mut RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
-        imp::TextLayout::new(&mut rx.0, text, &f.0, width, height).map(TextLayout)
+    pub fn new(rx: &RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
+        imp::TextLayout::new(&rx.0, text, &f.0, width, height).map(TextLayout)
     }
     
     /// Calculate the bounding rectangle of this text layout
@@ -212,6 +212,8 @@ impl RenderContext {
     pub fn bounds(&self) -> Rect { self.0.bounds() }
 }
 
+// runic 0.5 -> get rid of Window. use winit crate instead
+// something with cairo somehow.
 
 // if I want to do this well:
 // Split RenderContext and Window apart into seperate modules

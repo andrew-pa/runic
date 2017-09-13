@@ -18,14 +18,14 @@ pub struct RenderContext {
 }
 
 impl Font {
-    pub fn new(rx: &mut RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
+    pub fn new(rx: &RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
         use windows::vgu::*;
         unsafe {
             let mut txf: *mut vgu::IDWriteTextFormat = uninitialized();
             let mut font_name = name.encode_utf16().collect::<Vec<u16>>();
             font_name.push(0u16);
             font_name.push(0u16);
-            rx.dwfac.CreateTextFormat(font_name.as_ptr(), null_mut(), 
+            (*rx.dwfac.p).CreateTextFormat(font_name.as_ptr(), null_mut(), 
                                  match weight {
                                      FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
                                      FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
@@ -42,7 +42,7 @@ impl Font {
 }
 
 impl TextLayout {
-    pub fn new(rx: &mut RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
+    pub fn new(rx: &RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
         use windows::vgu::*;
         use std::mem::transmute;
         unsafe {
@@ -50,7 +50,7 @@ impl TextLayout {
             let mut txd = text.encode_utf16().collect::<Vec<u16>>();
             txd.push(0u16);
             txd.push(0u16);
-            rx.dwfac.CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, &mut lo)
+            (*rx.dwfac.p).CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, &mut lo)
                 .into_result(|| Com::from_ptr(transmute(lo))).map_err(Into::into)
         }
     }
@@ -187,6 +187,7 @@ fn translate_keycode(w: vgu::WPARAM, _: vgu::LPARAM) -> KeyCode {
         VK_ESCAPE => Escape,
         VK_CONTROL => Ctrl,
         VK_DELETE => Delete,
+        VK_TAB => Tab,
         _ => Unknown
     }
 }
@@ -233,7 +234,7 @@ unsafe extern "system" fn global_winproc(win: vgu::HWND, msg: vgu::UINT, w: vgu:
             let v = [w as u16; 1];
             use std::char::decode_utf16;
             let cr = decode_utf16(v.iter().cloned()).map(|r| r.expect("valid char")).next().unwrap();
-            rwin.app.event(Event::Key(KeyCode::Character(cr), false), rf);
+            rwin.app.event(Event::Key(KeyCode::Character(cr), true), rf);
             0
         },
 
