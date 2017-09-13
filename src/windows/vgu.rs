@@ -12,7 +12,7 @@ use std::fmt;
 use std::ops;
 use std::error::Error;
 use std::ptr::{null_mut, null};
-use std::mem::{size_of, uninitialized, transmute};
+use std::mem::{uninitialized, transmute};
 
 #[derive(Debug)]
 pub struct HResultError {
@@ -56,88 +56,6 @@ impl IntoResult<HResultError> for HRESULT {
     fn extents(width: i32, height: i32) -> Rect { Rect { 0,width,0,height } }
     fn new(x: i32, y: i32, w: i32, h: i32) -> Rect { Rect { x, x+w, y, y+h } }
 }*/
-
-
-pub struct Window {
-    pub hndl: HWND
-}
-
-impl Window {
-    pub fn foreground_window() -> Option<Window> {
-        let hndl = unsafe { GetForegroundWindow() };
-        if hndl.is_null() {
-            None
-        } else {
-            Some(Window::from_handle(hndl))
-        }
-    }
-    pub fn from_handle(hndl: HWND) -> Window { Window { hndl } }
-    pub fn new(title: &str, size: (i32, i32), prc: WNDPROC) -> Result<Window, HResultError> {
-        unsafe {
-            let module = GetModuleHandleW(null());
-            let class = WNDCLASSEXW {
-                cbSize: size_of::<WNDCLASSEXW>() as UINT,
-                style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: prc,
-                cbClsExtra: 0, cbWndExtra: 32,
-                hInstance: module,
-                hIcon: null_mut(),
-                hCursor: LoadCursorW(module, IDC_ARROW),
-                hbrBackground: null_mut(),
-                lpszMenuName: null(),
-                lpszClassName: &[66u16,0u16] as *const u16,
-                hIconSm: null_mut()
-            };
-            if RegisterClassExW(&class) == 0 {
-                return Err(HResultError::last_win32_error())
-            }
-            let mut title_u16 = title.encode_utf16().collect::<Vec<_>>();
-            title_u16.push(0);
-            let hwnd = CreateWindowExW(
-                WS_EX_COMPOSITED, //assuming we're going to use this with DirectX
-                &[66u16,0u16] as *const u16,
-                title_u16.as_ptr(),
-                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                CW_USEDEFAULT, CW_USEDEFAULT,
-                size.0, size.1,
-                null_mut(), 
-                null_mut(), 
-                module, 
-                null_mut());
-            if hwnd.is_null() {
-                Err(HResultError::last_win32_error())
-            } else {
-                Ok(Window::from_handle(hwnd))
-            }
-        }
-    }
-    pub fn client_rect(&self) -> RECT {
-        let mut rc: RECT = RECT{left:0,right:0,bottom:0,top:0};
-        unsafe { GetClientRect(self.hndl, &mut rc); }
-        rc
-    }
-
-    pub fn message_loop() {
-        unsafe {
-            let mut msg: MSG = uninitialized();
-            while GetMessageW(&mut msg, null_mut(), 0, 0) != 0 {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
-            }
-        }
-    }
-}
-
-impl Drop for Window {
-    fn drop(&mut self) {
-        unsafe {
-            UnregisterClassW(&[65u16,0u16] as *const u16, GetModuleHandleW(null()));
-            CloseWindow(self.hndl);
-        }
-        self.hndl = null_mut();
-    }
-}
-
 pub struct Com<T> {
     pub punk: *mut IUnknown,
     pub p: *mut T
@@ -198,7 +116,6 @@ impl<T> ops::DerefMut for Com<T> {
 }
 
 
-
 extern "system" {
 	fn D2D1CreateFactory(
         factoryType: D2D1_FACTORY_TYPE,
@@ -228,10 +145,13 @@ pub type Brush = Com<ID2D1Brush>;
 
 pub type WindowRenderTarget = Com<ID2D1HwndRenderTarget>;
 
+use winit::Window;
+use winit::os::windows::WindowExt;
+
 impl WindowRenderTarget {
     pub fn new(mut fct: Factory, win: &Window) -> Result<WindowRenderTarget, HResultError> {
-        let rc = win.client_rect();
-        let size = D2D_SIZE_U { width: (rc.right-rc.left) as u32, height: (rc.bottom-rc.top) as u32 };
+        let rc = win.get_inner_size_pixels().ok_or(HResultError::new(E_FAIL))?;
+        let size = D2D_SIZE_U { width: rc.0, height: rc.1 };
         let pxfmt = D2D1_PIXEL_FORMAT {
             format: DXGI_FORMAT_B8G8R8A8_UNORM,
             alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED
@@ -244,7 +164,7 @@ impl WindowRenderTarget {
             minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
         };
         let hwnd_rp = D2D1_HWND_RENDER_TARGET_PROPERTIES {
-            hwnd: win.hndl,
+            hwnd: win.get_hwnd() as HWND,
             pixelSize: size,
             presentOptions: D2D1_PRESENT_OPTIONS_NONE
         };
