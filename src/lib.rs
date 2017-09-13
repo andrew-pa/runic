@@ -1,4 +1,11 @@
+extern crate winit;
+
 use std::error::Error;
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+use windows as imp;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Point { pub x: f32, pub y: f32 }
@@ -77,147 +84,100 @@ pub enum FontStyle {
     Normal, Italic
 }
 
-#[derive(Debug,Copy,Clone)]
-pub enum MouseButton {
-    Left, Right, Middle
-}
+pub type Font = imp::Font;
+pub type TextLayout = imp::TextLayout;
+pub type RenderContext = imp::RenderContext;
 
-/// A key on the keyboard
-///
-/// There is some overlap between some of these variants, it is likely that your App will receive
-/// multiple events with each version
-#[derive(Debug,Copy,Clone)]
-pub enum KeyCode {
-    Unknown,
-    /// Characters as processed by the operating system
-    Character(char),
-    /// Characters as printed on the keycaps, no processing
-    RawCharacter(char), //characters as printed on the keycaps
-    Left, Right, Up, Down,
-    Backspace, Enter, Escape, Ctrl, Delete, Tab,
-    /// Function keys, numbered like keys, starting at 1 = F1
-    Function(u8)
-}
-
-/// An event from the system
-#[derive(Copy,Clone,Debug)]
-pub enum Event {
-    /// The window has resized
-    ///
-    /// The first two u32s are the width and height in pixels, and the Point is the width/height in
-    /// device independent units
-    Resize(u32, u32, Point),
-
-    /// The mouse has moved, with an optional mouse down. Coords in DIPs
-    MouseMove(Point, Option<MouseButton>),
-    /// A mouse button has been depressed. Coords in DIPs
-    MouseDown(Point, MouseButton),
-    /// A mouse button has been released. Coords in DIPs
-    MouseUp(Point, MouseButton),
-    /// A key event. True represents pressed, false released
-    Key(KeyCode, bool),
-}
-
-/// The App trait represents the client rendering and event handling code to the Window
-pub trait App {
-    /// Re-render the app contents/interface
-    fn paint(&mut self, rx: &mut RenderContext);
-    /// Handle an event
-    fn event(&mut self, e: Event, win: WindowRef);
-}
-
-#[cfg(target_os = "windows")]
-mod windows;
-#[cfg(target_os = "windows")]
-use windows as imp;//::{RenderContext, Window, Font, TextLayout};
-
-pub struct Window(imp::Window);
-
-#[derive(Clone)]
-/// Represents a (weak) reference to a window so that it can be notified of events by the app
-pub struct WindowRef(imp::WindowRef);
-
-pub struct Font(imp::Font);
-pub struct TextLayout(imp::TextLayout);
-pub struct RenderContext(imp::RenderContext);
-
-impl Window {
-    /// Create a new window, then create an App trait object with the render context associated
-    /// with it
-    pub fn new<A: App + 'static, F: FnOnce(&mut RenderContext)->A>(title: &str, width: usize, height: usize, appf: F) 
-        -> Result<Self, Box<Error>> 
-    {
-        imp::Window::new(title, width, height, appf).map(Window)
-    }
-
-    /// Run the message loop for this window. This function doesn't return until the window exits
-    pub fn show(&mut self) { self.0.show(); }
-}
-
-impl WindowRef {
-    /// Request the window to quit. This will cause `Window::show` to return
-    pub fn quit(&self) { self.0.quit() }
-}
-
-impl Font {
-    /// Create a new font, looking the name up in the system font registery
-    pub fn new(rx: &RenderContext, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
-        imp::Font::new(&rx.0, name, size, weight, style).map(Font)
-    }
-}
-
-impl TextLayout {
-    /// Create a new text layout. The text will be wrapped to `width` and `height`
-    pub fn new(rx: &RenderContext, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
-        imp::TextLayout::new(&rx.0, text, &f.0, width, height).map(TextLayout)
-    }
-    
+pub trait TextLayoutExt {
     /// Calculate the bounding rectangle of this text layout
-    pub fn bounds(&self) -> Rect { self.0.bounds() }
+    fn bounds(&self) -> Rect;
 
     /// Calculate the bounding rectangle of the character at `index`
-    pub fn char_bounds(&self, index: usize) -> Rect { self.0.char_bounds(index) }
+    fn char_bounds(&self, index: usize) -> Rect;
 }
 
-impl RenderContext {
+pub trait RenderContextExt {
+    fn new(win: &winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+
+    /// Create a new font, looking the name up in the system font registery
+    fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>>;
+
+    /// Create a new text layout. The text will be wrapped to `width` and `height`
+    fn new_text_layout(&self, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>>;
+
     /// Clear the window
-    pub fn clear(&mut self, col: Color) { self.0.clear(col); }
+    fn clear(&mut self, col: Color);
+
+    fn set_color(&mut self, col: Color);
 
     /// Draw a rectangle, only the outline
-    pub fn stroke_rect(&mut self, rect: Rect, col: Color, stroke_width: f32) { self.0.stroke_rect(rect, col, stroke_width); }
+    fn stroke_rect(&mut self, rect: Rect, stroke_width: f32);
 
     /// Draw a filled rectangle
-    pub fn fill_rect(&mut self, rect: Rect, col: Color) { self.0.fill_rect(rect, col); }
+    fn fill_rect(&mut self, rect: Rect);
 
     /// Draw a line
-    pub  fn draw_line(&mut self, a: Point, b: Point, col: Color, stroke_width: f32) { self.0.draw_line(a,b,col,stroke_width); }
+    fn draw_line(&mut self, a: Point, b: Point, stroke_width: f32);
 
     /// Draw text, wrapped within `rect`
     ///
     /// This function is best for dynamic text, that won't need to be measured
-    pub fn draw_text(&mut self, rect: Rect, s: &str, col: Color, f: &Font) { self.0.draw_text(rect,s,col,&f.0); }
+    fn draw_text(&mut self, rect: Rect, s: &str, f: &Font);
 
     /// Draw a text layout
     ///
     /// This is ideal for text that needs to be measured or layed out but doesn't change as
     /// frequently
-    pub fn draw_text_layout(&mut self, p: Point, txl: &TextLayout, col: Color) { self.0.draw_text_layout(p,&txl.0,col); }
+    fn draw_text_layout(&mut self, p: Point, txl: &TextLayout);
 
     /// Translate the origin point that primitives will be drawn relative to
     ///
     /// Default value is (0,0)
-    pub fn translate(&mut self, p: Point) { self.0.translate(p); }
+    fn translate(&mut self, p: Point);
 
     /// Calculate the size of the area being rendered into
-    pub fn bounds(&self) -> Rect { self.0.bounds() }
+    fn bounds(&self) -> Rect;
+
+    /// Start the painting process. Must be called before any drawing functions
+    fn start_paint(&mut self);
+    /// End the painting process. Call after finishing drawing
+    fn end_paint(&mut self);
+
+    /// Resize this RenderContext
+    fn resize(&mut self, w: u32, h: u32);
 }
 
-// runic 0.5 -> get rid of Window. use winit crate instead
-// something with cairo somehow.
+/// The App trait represents an application that uses RenderContext to draw its interface.
+/// The `run` function is provided to conveniently set up the loop that handles winit events and
+/// redraws the App interface using `paint`
+pub trait App {
+    fn paint(&mut self, rx: &mut RenderContext);
+    fn event(&mut self, e: winit::Event) -> bool;
 
-// if I want to do this well:
-// Split RenderContext and Window apart into seperate modules
-// Write Direct2D and Cairo/Pango RenderContext modules
-// Write Win32, Cocoa, GTK, etc... Window modules
-// Provide a system to choose between them
-// ✓ Define passthrough structs to prove documentation targets and a unified single spec of APIs
+    fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
+        use winit::*;
+        let mut running = true;
+        while running {
+            let mut need_repaint = false;
+            evloop.poll_events(|e| {
+                match e {
+                    Event::WindowEvent { event: WindowEvent::Closed, .. } => { running = false },
+                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
+                        rx.resize(w,h);
+                        need_repaint = true;
+                        running = !self.event(e);
+                    }
+                    _ => {
+                        need_repaint = true;
+                        running = !self.event(e);
+                    }
+                };
+            });
+            if need_repaint {
+                rx.start_paint();
+                self.paint(rx);
+                rx.end_paint();
+            }
+        }
+    }
+}
