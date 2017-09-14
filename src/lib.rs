@@ -161,34 +161,39 @@ pub trait RenderContextExt {
 /// The App trait represents an application that uses RenderContext to draw its interface.
 /// The `run` function is provided to conveniently set up the loop that handles winit events and
 /// redraws the App interface using `paint`
+use std::rc::Rc;
+use std::cell::RefCell;
 pub trait App {
     fn paint(&mut self, rx: &mut RenderContext);
     fn event(&mut self, e: winit::Event) -> bool;
 
     fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
         use winit::*;
-        let mut running = true;
-        while running {
-            let mut need_repaint = false;
-            evloop.poll_events(|e| {
-                match e {
-                    Event::WindowEvent { event: WindowEvent::Closed, .. } => { running = false },
-                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
-                        rx.resize(w,h);
-                        need_repaint = true;
-                        running = !self.event(e);
+        evloop.run_forever(|e| {
+            match e {
+                Event::WindowEvent { event: WindowEvent::Closed, .. } => ControlFlow::Break,
+                Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
+                    rx.resize(w,h);
+                    rx.start_paint();
+                    self.paint(rx);
+                    rx.end_paint();
+                    if self.event(e) {
+                        ControlFlow::Break
+                    } else {
+                        ControlFlow::Continue
                     }
-                    _ => {
-                        need_repaint = true;
-                        running = !self.event(e);
+                },
+                _ => {
+                    if self.event(e) {
+                        ControlFlow::Break
+                    } else {
+                        rx.start_paint();
+                        self.paint(rx);
+                        rx.end_paint();
+                        ControlFlow::Continue
                     }
-                };
-            });
-            if need_repaint {
-                rx.start_paint();
-                self.paint(rx);
-                rx.end_paint();
+                }
             }
-        }
+        });
     }
 }
