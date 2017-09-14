@@ -188,11 +188,19 @@ impl RenderContextExt for RenderContext {
         }
     }
 
-    fn translate(&mut self, p: Point) {}
+    fn translate(&mut self, p: Point) {
+        unsafe {
+            cairo_translate(self.cx, p.x as f64, p.y as f64);
+        }
+    }
 
     fn bounds(&self) -> Rect { Rect::xywh(0.0,0.0,self.size.0 as f32,self.size.1 as f32) }
 
-    fn start_paint(&mut self) {}
+    fn start_paint(&mut self) {
+        unsafe {
+            cairo_identity_matrix(self.cx);
+        }
+    }
     fn end_paint(&mut self) {
         unsafe {
             msg_send![self.qgx, flushGraphics]
@@ -206,10 +214,15 @@ impl RenderContextExt for RenderContext {
             cairo_surface_destroy(self.surf);
             self.surf = cairo_quartz_surface_create_for_cg_context(
                 transmute(cg), width, height);
+            let mut offset: (f64, f64) = (0.0, 0.0);
+            let mut scale: (f64, f64) = (0.0, 0.0);
+            cairo_surface_get_device_offset(self.surf, &mut offset.0, &mut offset.1);
+            cairo_surface_get_device_scale(self.surf, &mut scale.0, &mut scale.1);
+            cairo_surface_set_device_offset(self.surf, offset.0, offset.1 + height as f64 / self.dpi_factor as f64);
+            cairo_surface_set_device_scale(self.surf, scale.0, -scale.1);
+ 
             cairo_destroy(self.cx);
             self.cx = cairo_create(self.surf);
-            cairo_translate(self.cx, 0.0, height as f64 / 2.0);
-            cairo_scale(self.cx, 1.0, -1.0);
             g_object_unref(transmute(self.pg));
             self.pg = pango_cairo_create_context(self.cx);
         }
