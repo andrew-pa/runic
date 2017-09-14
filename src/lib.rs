@@ -97,7 +97,8 @@ pub trait TextLayoutExt {
 }
 
 pub trait RenderContextExt {
-    fn new(win: &winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+    /// Create a new RenderContext, and resize the window to be in DIP units
+    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
 
     /// Create a new font, looking the name up in the system font registery
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>>;
@@ -181,3 +182,6 @@ pub trait App {
         }
     }
 }
+
+/// Initialize runic library. On Windows this enables HiDPI mode
+pub fn init() { imp::init(); }

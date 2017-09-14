@@ -4,6 +4,12 @@ use std::ptr::null_mut;
 
 mod vgu; //handle lowest level COM stuff
 
+pub fn init() {
+    unsafe {
+        vgu::SetProcessDpiAwareness(2);
+    }
+}
+
 pub type Font = vgu::Com<vgu::IDWriteTextFormat>;
 pub type TextLayout = vgu::Com<vgu::IDWriteTextLayout>;
 
@@ -34,9 +40,16 @@ impl TextLayoutExt for TextLayout {
 }
 
 impl RenderContextExt for RenderContext {
-    fn new(win: &winit::Window) -> Result<RenderContext, Box<Error>> {
+    fn new(win: &mut winit::Window) -> Result<RenderContext, Box<Error>> {
         let d2fac = vgu::Factory::new()?;
         let dwfac = vgu::TextFactory::new()?;
+        let mut dpi: (f32, f32) = (0.0, 0.0);
+        unsafe { (*d2fac.p).GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
+        let (width, height) = win.get_inner_size_pixels().ok_or("fail")?;
+        println!("dpi = {:?}, size = {}x{}", dpi, width, height);
+        win.set_inner_size(
+            ((width as f32) * (dpi.0 / 96.0)).ceil() as u32,
+            ((height as f32) * (dpi.1 / 96.0)).ceil() as u32);
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &win)?;
         unsafe {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
