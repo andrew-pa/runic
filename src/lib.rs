@@ -1,11 +1,22 @@
 extern crate winit;
 
+#[cfg(target_os="macos")]
+#[macro_use]
+extern crate objc;
+#[cfg(target_os="macos")]
+extern crate cocoa;
+
 use std::error::Error;
 
 #[cfg(windows)]
 mod windows;
+#[cfg(target_os="macos")]
+mod macos;
+
 #[cfg(windows)]
 use windows as imp;
+#[cfg(target_os="macos")]
+use macos as imp;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Point { pub x: f32, pub y: f32 }
