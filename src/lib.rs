@@ -1,4 +1,5 @@
 extern crate winit;
+use std::error::Error;
 
 #[cfg(target_os="macos")]
 #[macro_use]
@@ -6,12 +7,25 @@ extern crate objc;
 #[cfg(target_os="macos")]
 extern crate cocoa;
 
-use std::error::Error;
+
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate cairo_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate pango_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate pangocairo_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate gobject_sys;
+
 
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os="macos")]
 mod macos;
+
+#[cfg(any(target_os="macos", target_os="linux"))]
+mod cairo_context;
+
 
 #[cfg(windows)]
 use windows as imp;

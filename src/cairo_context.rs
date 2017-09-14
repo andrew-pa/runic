@@ -1,35 +1,14 @@
+use *;
 
-use super::*;
 use std::error::Error;
 use std::os::raw::c_void;
+use std::mem::transmute;
+use std::rc::Rc;
 
-use objc::runtime::{Class, Object};
-
-extern crate cairo_sys;
-extern crate pango_sys;
-extern crate pangocairo_sys;
-extern crate gobject_sys;
-use self::cairo_sys::*;
-use self::pango_sys::*;
-use self::pangocairo_sys::*;
-use self::gobject_sys::g_object_unref;
-
-/*
- * eventually split out the Cairo/Pango part:
- * trait CairoSurface {
- *  fn new(win: &mut winit::Window) -> Self;
- *  fn begin_paint/end_paint();
- *  fn resize(w, h);
- *  fn surface() -> *mut cairo_surface_t;
- * }
- * struct CairoRenderContext<S: CairoSurfaceProvider> {
- * }
- * impl CairoSurface for OSXSurface; etc.
- */
-
-use winit::os::macos::WindowExt;
-
-pub fn init() { }
+use cairo_sys::*;
+use pango_sys::*;
+use pangocairo_sys::*;
+use gobject_sys::g_object_unref;
 
 struct PangoFontDesc(*mut PangoFontDescription);
 
@@ -60,46 +39,23 @@ impl TextLayoutExt for TextLayout {
     fn char_bounds(&self, index: usize) -> Rect { Rect::xywh(0.0, 0.0,0.0,0.0) }
 }
 
-pub struct RenderContext {
-    qgx: *mut Object,
-    surf: *mut cairo_surface_t,
+
+pub trait CairoSurface {
+    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+    fn start_paint(&mut self);
+    fn end_paint(&mut self);
+    fn resize(&mut self, w: u32, h: u32);
+    fn surface(&self) -> *mut cairo_surface_t;
+    fn bounds(&self) -> Rect;
+}
+
+pub struct CairoRenderContext<S: CairoSurface> {
+    surface: S,
     cx: *mut cairo_t,
     pg: *mut PangoContext,
-    size: (u32, u32), dpi_factor: f32
 }
 
-use std::mem::transmute;
-
-extern "C" {
-    fn cairo_surface_get_device_offset(surface: *mut cairo_surface_t, x: *mut f64, y: *mut f64);
-    fn cairo_surface_get_device_scale(surface: *mut cairo_surface_t, x: *mut f64, y: *mut f64);
-    fn cairo_surface_set_device_offset(surface: *mut cairo_surface_t, x: f64, y: f64);
-    fn cairo_surface_set_device_scale(surface: *mut cairo_surface_t, x: f64, y: f64);
-}
-
-impl RenderContextExt for RenderContext {
-    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized {
-        let (width,height) = win.get_inner_size_points().ok_or("")?;
-        unsafe {
-            let NSGraphicsContext = Class::get("NSGraphicsContext").ok_or("")?;
-            let nsgx: *mut Object = msg_send![NSGraphicsContext, graphicsContextWithWindow: win.get_nswindow()];
-            let cg: *mut c_void = msg_send![nsgx, graphicsPort];
-            let surf = cairo_quartz_surface_create_for_cg_context(
-                transmute(cg), width, height);
-            let cx = cairo_create(surf);
-            let mut offset: (f64, f64) = (0.0, 0.0);
-            let mut scale: (f64, f64) = (0.0, 0.0);
-            cairo_surface_get_device_offset(surf, &mut offset.0, &mut offset.1);
-            cairo_surface_get_device_scale(surf, &mut scale.0, &mut scale.1);
-            cairo_surface_set_device_offset(surf, offset.0, offset.1 + height as f64);
-            cairo_surface_set_device_scale(surf, scale.0, -scale.1);
-            let pg = pango_cairo_create_context(cx);
-            Ok(RenderContext{
-                qgx: nsgx, surf, cx, pg, size: (width, height), dpi_factor: win.hidpi_factor()
-            })
-        }
-    }
-
+impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
         unsafe {
             let fd = pango_font_description_new();
@@ -194,35 +150,32 @@ impl RenderContextExt for RenderContext {
         }
     }
 
-    fn bounds(&self) -> Rect { Rect::xywh(0.0,0.0,self.size.0 as f32,self.size.1 as f32) }
+    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> {
+        unsafe {
+            let mut surf = S::new(win)?;
+            let cx = cairo_create(surf.surface());
+            let pg = pango_cairo_create_context(cx);
+            Ok(CairoRenderContext {
+                surface: surf, cx, pg
+            })
+        }
+    }
+
+    fn bounds(&self) -> Rect { self.surface.bounds() }
 
     fn start_paint(&mut self) {
         unsafe {
             cairo_identity_matrix(self.cx);
         }
+        self.surface.start_paint()
     }
-    fn end_paint(&mut self) {
-        unsafe {
-            msg_send![self.qgx, flushGraphics]
-        }
-    }
+    fn end_paint(&mut self) { self.surface.end_paint() }
 
-    fn resize(&mut self, width: u32, height: u32) {
-        self.size = ((width as f32/self.dpi_factor) as u32, (height as f32/self.dpi_factor) as u32);
-        unsafe {
-            let cg: *mut c_void = msg_send![self.qgx, graphicsPort];
-            cairo_surface_destroy(self.surf);
-            self.surf = cairo_quartz_surface_create_for_cg_context(
-                transmute(cg), width, height);
-            let mut offset: (f64, f64) = (0.0, 0.0);
-            let mut scale: (f64, f64) = (0.0, 0.0);
-            cairo_surface_get_device_offset(self.surf, &mut offset.0, &mut offset.1);
-            cairo_surface_get_device_scale(self.surf, &mut scale.0, &mut scale.1);
-            cairo_surface_set_device_offset(self.surf, offset.0, offset.1 + height as f64 / self.dpi_factor as f64);
-            cairo_surface_set_device_scale(self.surf, scale.0, -scale.1);
- 
+    fn resize(&mut self, w: u32, h: u32) {
+        self.surface.resize(w,h);
+        unsafe { 
             cairo_destroy(self.cx);
-            self.cx = cairo_create(self.surf);
+            self.cx = cairo_create(self.surface.surface());
             g_object_unref(transmute(self.pg));
             self.pg = pango_cairo_create_context(self.cx);
         }
