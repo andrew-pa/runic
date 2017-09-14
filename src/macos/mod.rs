@@ -37,10 +37,11 @@ impl RenderContextExt for RenderContext {
             let cg: *mut c_void = msg_send![nsgx, graphicsPort];
             let surf = cairo_quartz_surface_create_for_cg_context(
                 transmute(cg), width, height);
-            println!("{:?} {:?} {:?}", nsgx, cg, surf);
+            let cx = cairo_create(surf);
+            cairo_translate(cx, 0.0, height as f64 / 2.0);
+            cairo_scale(cx, 1.0, -1.0);
             Ok(RenderContext{
-                qgx: nsgx, surf: surf,
-                cx: cairo_create(surf)
+                qgx: nsgx, surf, cx
             })
         }
     }
@@ -65,11 +66,31 @@ impl RenderContextExt for RenderContext {
         unsafe { cairo_set_source_rgba(self.cx, col.r as f64, col.g as f64, col.b as f64, col.a as f64); }
     }
 
-    fn stroke_rect(&mut self, rect: Rect, stroke_width: f32) {}
+    fn stroke_rect(&mut self, rect: Rect, stroke_width: f32) {
+        unsafe {
+            cairo_set_line_width(self.cx, stroke_width as f64);
+            cairo_rectangle(self.cx, rect.x as f64, rect.y as f64, 
+                            rect.w as f64, rect.h as f64);
+            cairo_stroke(self.cx);
+        }
+    }
 
-    fn fill_rect(&mut self, rect: Rect) {}
+    fn fill_rect(&mut self, rect: Rect) {
+        unsafe {
+            cairo_rectangle(self.cx, rect.x as f64, rect.y as f64, 
+                            rect.w as f64, rect.h as f64);
+            cairo_fill(self.cx);
+        }
+    }
 
-    fn draw_line(&mut self, a: Point, b: Point, stroke_width: f32) {}
+    fn draw_line(&mut self, a: Point, b: Point, stroke_width: f32) {
+        unsafe {
+            cairo_set_line_width(self.cx, stroke_width as f64);
+            cairo_move_to(self.cx, a.x as f64, a.y as f64);
+            cairo_line_to(self.cx, b.x as f64, b.y as f64);
+            cairo_stroke(self.cx);
+        }
+    }
 
     fn draw_text(&mut self, rect: Rect, s: &str, f: &Font) {}
 
@@ -85,5 +106,16 @@ impl RenderContextExt for RenderContext {
             msg_send![self.qgx, flushGraphics]
         }
     }
-    fn resize(&mut self, w: u32, h: u32) {}
+    fn resize(&mut self, width: u32, height: u32) {
+        unsafe {
+            let cg: *mut c_void = msg_send![self.qgx, graphicsPort];
+            cairo_surface_destroy(self.surf);
+            self.surf = cairo_quartz_surface_create_for_cg_context(
+                transmute(cg), width, height);
+            cairo_destroy(self.cx);
+            self.cx = cairo_create(self.surf);
+            cairo_translate(self.cx, 0.0, height as f64 / 2.0);
+            cairo_scale(self.cx, 1.0, -1.0);
+        }
+    }
 }
