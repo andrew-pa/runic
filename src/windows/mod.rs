@@ -39,6 +39,7 @@ impl TextLayoutExt for TextLayout {
     }
 }
 
+use winit::os::windows::WindowExt;
 impl RenderContextExt for RenderContext {
     fn new(win: &mut winit::Window) -> Result<RenderContext, Box<Error>> {
         let d2fac = vgu::Factory::new()?;
@@ -46,10 +47,18 @@ impl RenderContextExt for RenderContext {
         let mut dpi: (f32, f32) = (0.0, 0.0);
         unsafe { (*d2fac.p).GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
         let (width, height) = win.get_inner_size_pixels().ok_or("fail")?;
-        println!("dpi = {:?}, size = {}x{}", dpi, width, height);
-        win.set_inner_size(
-            ((width as f32) * (dpi.0 / 96.0)).ceil() as u32,
-            ((height as f32) * (dpi.1 / 96.0)).ceil() as u32);
+        unsafe {
+            let wnd = win.get_hwnd() as vgu::HWND;
+            let mut rect = vgu::RECT {
+                left: 0, top: 0,
+                right: ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
+                bottom: ((height as f32) * (dpi.1 / 96.0)).ceil() as i32,
+            };
+            vgu::AdjustWindowRect(&mut rect, vgu::GetWindowLongW(wnd, vgu::GWL_STYLE) as u32, 0);
+            vgu::SetWindowPos(wnd, null_mut(), 0, 0,
+                rect.right-rect.left, rect.bottom-rect.top,
+                vgu::SWP_NOMOVE|vgu::SWP_DEFERERASE|vgu::SWP_NOACTIVATE|vgu::SWP_NOREDRAW|vgu::SWP_NOCOPYBITS|vgu::SWP_ASYNCWINDOWPOS);
+        }
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &win)?;
         unsafe {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
