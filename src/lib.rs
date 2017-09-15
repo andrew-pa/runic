@@ -184,7 +184,30 @@ pub trait App {
 
     fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
         use winit::*;
-        evloop.run_forever(|ee| {
+        let mut running = true;
+        while running {
+            let mut need_repaint = false;
+            evloop.poll_events(|e| {
+                match e {
+                    Event::WindowEvent { event: WindowEvent::Closed, .. } => { running = false },
+                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
+                        rx.resize(w,h);
+                        need_repaint = true;
+                        running = !self.event(e);
+                    }
+                    _ => {
+                        need_repaint = true;
+                        running = !self.event(e);
+                    }
+                };
+            });
+            if need_repaint {
+                rx.start_paint();
+                self.paint(rx);
+                rx.end_paint();
+            }
+        }
+        /*evloop.run_forever(|ee| {
             match ee.clone() {
                 Event::WindowEvent { event: e, .. } => {
                     match e {
@@ -196,13 +219,17 @@ pub trait App {
                             rx.end_paint();
                             if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
                         },
-                        _ => { if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } } 
-                        _ => ControlFlow::Continue
+                        _ => {
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
+                        } 
                     }
-                }
+                },
                 _ => ControlFlow::Continue
             }
-        });
+        });*/
     }
 }
 
