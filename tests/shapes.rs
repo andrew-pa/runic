@@ -16,7 +16,8 @@ impl App for TestApp {
         rx.fill_rect(Rect::xywh(116.0, 8.0, 100.0, 100.0));
         rx.set_color(Color::rgb(0.0, 0.0, 0.6));
         rx.draw_line(Point::xy(16.0, 16.0), Point::xy(94.0, 94.0), 3.0);
-        rx.stroke_rect(Rect::xywh(0.0, 0.0, 512.0, 512.0), 4.0);
+        let b = rx.bounds();
+        rx.stroke_rect(b, 4.0);
     }
 
     fn event(&mut self, e: Event) -> bool {

@@ -57,7 +57,7 @@ impl RenderContextExt for RenderContext {
             vgu::AdjustWindowRect(&mut rect, vgu::GetWindowLongW(wnd, vgu::GWL_STYLE) as u32, 0);
             vgu::SetWindowPos(wnd, null_mut(), 0, 0,
                 rect.right-rect.left, rect.bottom-rect.top,
-                vgu::SWP_NOMOVE|vgu::SWP_DEFERERASE|vgu::SWP_NOACTIVATE|vgu::SWP_NOREDRAW|vgu::SWP_NOCOPYBITS|vgu::SWP_ASYNCWINDOWPOS);
+                vgu::SWP_NOMOVE|vgu::SWP_ASYNCWINDOWPOS);
         }
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &win)?;
         unsafe {
