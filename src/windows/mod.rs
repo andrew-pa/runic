@@ -17,7 +17,8 @@ pub struct RenderContext {
     d2fac: vgu::Factory,
     dwfac: vgu::TextFactory,
     rt: vgu::WindowRenderTarget,
-    scb: vgu::Brush
+    scb: vgu::Brush,
+    dpi: (f32, f32)
 }
 
 impl TextLayoutExt for TextLayout {
@@ -64,7 +65,7 @@ impl RenderContextExt for RenderContext {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         }
         let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
-        Ok(RenderContext { d2fac, dwfac, rt, scb })
+        Ok(RenderContext { d2fac, dwfac, rt, scb, dpi })
     }
 
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
@@ -164,6 +165,10 @@ impl RenderContextExt for RenderContext {
             };
             self.rt.SetTransform(&s);
         }
+    }
+
+    fn pixels_to_points(&self, p: Point) -> Point {
+        Point::xy(p.x * (96.0 / self.dpi.0), p.y * (96.0 / self.dpi.1))
     }
 
     fn start_paint(&mut self) {

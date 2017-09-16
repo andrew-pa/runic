@@ -62,6 +62,20 @@ impl std::ops::IndexMut<u8> for Point {
     }
 }
 
+impl From<(f32, f32)> for Point {
+    fn from((x, y): (f32, f32)) -> Point {
+        Point {x, y}
+    }
+}
+
+// should the whole API shift to f64??
+// at least Point should probably be Point<T>. Rect would also probably be enhanced
+// there is probably a crate with this stuff in it
+impl From<(f64, f64)> for Point {
+    fn from((x, y): (f64, f64)) -> Point {
+        Point {x: x as f32, y: y as f32}
+    }
+}
 #[derive(Copy,Clone,Debug)]
 pub struct Rect {
     pub x: f32, pub y: f32, pub w: f32, pub h: f32
@@ -171,6 +185,10 @@ pub trait RenderContextExt {
 
     /// Resize this RenderContext
     fn resize(&mut self, w: u32, h: u32);
+
+    /// Convert a point that is in screen pixels to a point that is Device Independent Points.
+    /// There are 96 DIPs in an inch
+    fn pixels_to_points(&self, p: Point) -> Point;
 }
 
 /// The App trait represents an application that uses RenderContext to draw its interface.
@@ -194,7 +212,12 @@ pub trait App {
                         rx.resize(w,h);
                         need_repaint = true;
                         running = !self.event(e);
-                    }
+                    },
+                    Event::WindowEvent { event: WindowEvent::MouseMoved { position, device_id }, window_id } => {
+                        need_repaint = true;
+                        let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+                        running = !self.event(Event::WindowEvent { event: WindowEvent::MouseMoved { position: (a as f64, b as f64), device_id }, window_id });
+                    },
                     _ => {
                         need_repaint = true;
                         running = !self.event(e);
