@@ -180,4 +180,6 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
             self.pg = pango_cairo_create_context(self.cx);
         }
     }
+
+    fn pixels_to_points(&self, p: Point) -> Point { p }
 }

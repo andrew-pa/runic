@@ -7,7 +7,6 @@ extern crate objc;
 #[cfg(target_os="macos")]
 extern crate cocoa;
 
-
 #[cfg(any(target_os="macos", target_os="linux"))]
 extern crate cairo_sys;
 #[cfg(any(target_os="macos", target_os="linux"))]
@@ -17,20 +16,25 @@ extern crate pangocairo_sys;
 #[cfg(any(target_os="macos", target_os="linux"))]
 extern crate gobject_sys;
 
+#[cfg(unix)]
+extern crate x11_dl;
 
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os="macos")]
 mod macos;
+#[cfg(unix)]
+mod unix;
 
 #[cfg(any(target_os="macos", target_os="linux"))]
 mod cairo_context;
-
 
 #[cfg(windows)]
 use windows as imp;
 #[cfg(target_os="macos")]
 use macos as imp;
+#[cfg(unix)]
+use unix as imp;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Point { pub x: f32, pub y: f32 }
