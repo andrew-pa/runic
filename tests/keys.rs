@@ -39,9 +39,10 @@ impl App for TestApp {
 
 #[test]
 fn keys() {
+    runic::init();
     let mut evl = EventsLoop::new();
     let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Keyboard Test").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&window).expect("create render context!");
+    let mut rx = RenderContext::new(&mut window).expect("create render context!");
     let mut app = TestApp::new(&mut rx);
     app.run(&mut rx, &mut evl);
 }

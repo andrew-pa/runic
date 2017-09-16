@@ -16,6 +16,8 @@ impl App for TestApp {
         rx.fill_rect(Rect::xywh(116.0, 8.0, 100.0, 100.0));
         rx.set_color(Color::rgb(0.0, 0.0, 0.6));
         rx.draw_line(Point::xy(16.0, 16.0), Point::xy(94.0, 94.0), 3.0);
+        let b = rx.bounds();
+        rx.stroke_rect(b, 4.0);
     }
 
     fn event(&mut self, e: Event) -> bool {
@@ -25,9 +27,10 @@ impl App for TestApp {
 
 #[test]
 fn shapes() {
+    runic::init();
     let mut evl = EventsLoop::new();
-    let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Shapes!").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&window).expect("create render context!");
+    let mut window = WindowBuilder::new().with_dimensions(512, 512).with_title("Shapes!").build(&evl).expect("create window!");
+    let mut rx = RenderContext::new(&mut window).expect("create render context!");
     let mut app = TestApp{};
     app.run(&mut rx, &mut evl);
 }

@@ -1,11 +1,36 @@
 extern crate winit;
-
 use std::error::Error;
+
+#[cfg(target_os="macos")]
+#[macro_use]
+extern crate objc;
+#[cfg(target_os="macos")]
+extern crate cocoa;
+
+
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate cairo_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate pango_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate pangocairo_sys;
+#[cfg(any(target_os="macos", target_os="linux"))]
+extern crate gobject_sys;
+
 
 #[cfg(windows)]
 mod windows;
+#[cfg(target_os="macos")]
+mod macos;
+
+#[cfg(any(target_os="macos", target_os="linux"))]
+mod cairo_context;
+
+
 #[cfg(windows)]
 use windows as imp;
+#[cfg(target_os="macos")]
+use macos as imp;
 
 #[derive(Copy,Clone,Debug)]
 pub struct Point { pub x: f32, pub y: f32 }
@@ -37,6 +62,20 @@ impl std::ops::IndexMut<u8> for Point {
     }
 }
 
+impl From<(f32, f32)> for Point {
+    fn from((x, y): (f32, f32)) -> Point {
+        Point {x, y}
+    }
+}
+
+// should the whole API shift to f64??
+// at least Point should probably be Point<T>. Rect would also probably be enhanced
+// there is probably a crate with this stuff in it
+impl From<(f64, f64)> for Point {
+    fn from((x, y): (f64, f64)) -> Point {
+        Point {x: x as f32, y: y as f32}
+    }
+}
 #[derive(Copy,Clone,Debug)]
 pub struct Rect {
     pub x: f32, pub y: f32, pub w: f32, pub h: f32
@@ -97,7 +136,8 @@ pub trait TextLayoutExt {
 }
 
 pub trait RenderContextExt {
-    fn new(win: &winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+    /// Create a new RenderContext, and resize the window to be in DIP units
+    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
 
     /// Create a new font, looking the name up in the system font registery
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>>;
@@ -145,11 +185,17 @@ pub trait RenderContextExt {
 
     /// Resize this RenderContext
     fn resize(&mut self, w: u32, h: u32);
+
+    /// Convert a point that is in screen pixels to a point that is Device Independent Points.
+    /// There are 96 DIPs in an inch
+    fn pixels_to_points(&self, p: Point) -> Point;
 }
 
 /// The App trait represents an application that uses RenderContext to draw its interface.
 /// The `run` function is provided to conveniently set up the loop that handles winit events and
 /// redraws the App interface using `paint`
+use std::rc::Rc;
+use std::cell::RefCell;
 pub trait App {
     fn paint(&mut self, rx: &mut RenderContext);
     fn event(&mut self, e: winit::Event) -> bool;
@@ -166,7 +212,12 @@ pub trait App {
                         rx.resize(w,h);
                         need_repaint = true;
                         running = !self.event(e);
-                    }
+                    },
+                    Event::WindowEvent { event: WindowEvent::MouseMoved { position, device_id }, window_id } => {
+                        need_repaint = true;
+                        let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+                        running = !self.event(Event::WindowEvent { event: WindowEvent::MouseMoved { position: (a as f64, b as f64), device_id }, window_id });
+                    },
                     _ => {
                         need_repaint = true;
                         running = !self.event(e);
@@ -179,5 +230,31 @@ pub trait App {
                 rx.end_paint();
             }
         }
+        /*evloop.run_forever(|ee| {
+            match ee.clone() {
+                Event::WindowEvent { event: e, .. } => {
+                    match e {
+                        WindowEvent::Closed => ControlFlow::Break,
+                        WindowEvent::Resized(w, h) => {
+                            rx.resize(w,h);
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
+                        },
+                        _ => {
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
+                        } 
+                    }
+                },
+                _ => ControlFlow::Continue
+            }
+        });*/
     }
 }
+
+/// Initialize runic library. On Windows this enables HiDPI mode
+pub fn init() { imp::init(); }

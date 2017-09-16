@@ -21,9 +21,10 @@ impl App for TestApp {
 
 #[test]
 fn basic() {
+    runic::init();
     let mut evl = EventsLoop::new();
     let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Basic Window").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&window).expect("create render context!");
+    let mut rx = RenderContext::new(&mut window).expect("create render context!");
     let mut app = TestApp{};
     app.run(&mut rx, &mut evl);
 }

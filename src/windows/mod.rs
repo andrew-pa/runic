@@ -4,6 +4,12 @@ use std::ptr::null_mut;
 
 mod vgu; //handle lowest level COM stuff
 
+pub fn init() {
+    unsafe {
+        vgu::SetProcessDpiAwareness(2);
+    }
+}
+
 pub type Font = vgu::Com<vgu::IDWriteTextFormat>;
 pub type TextLayout = vgu::Com<vgu::IDWriteTextLayout>;
 
@@ -11,7 +17,8 @@ pub struct RenderContext {
     d2fac: vgu::Factory,
     dwfac: vgu::TextFactory,
     rt: vgu::WindowRenderTarget,
-    scb: vgu::Brush
+    scb: vgu::Brush,
+    dpi: (f32, f32)
 }
 
 impl TextLayoutExt for TextLayout {
@@ -33,16 +40,32 @@ impl TextLayoutExt for TextLayout {
     }
 }
 
+use winit::os::windows::WindowExt;
 impl RenderContextExt for RenderContext {
-    fn new(win: &winit::Window) -> Result<RenderContext, Box<Error>> {
+    fn new(win: &mut winit::Window) -> Result<RenderContext, Box<Error>> {
         let d2fac = vgu::Factory::new()?;
         let dwfac = vgu::TextFactory::new()?;
+        let mut dpi: (f32, f32) = (0.0, 0.0);
+        unsafe { (*d2fac.p).GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
+        let (width, height) = win.get_inner_size_pixels().ok_or("fail")?;
+        unsafe {
+            let wnd = win.get_hwnd() as vgu::HWND;
+            let mut rect = vgu::RECT {
+                left: 0, top: 0,
+                right: ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
+                bottom: ((height as f32) * (dpi.1 / 96.0)).ceil() as i32,
+            };
+            vgu::AdjustWindowRect(&mut rect, vgu::GetWindowLongW(wnd, vgu::GWL_STYLE) as u32, 0);
+            vgu::SetWindowPos(wnd, null_mut(), 0, 0,
+                rect.right-rect.left, rect.bottom-rect.top,
+                vgu::SWP_NOMOVE|vgu::SWP_ASYNCWINDOWPOS);
+        }
         let rt = vgu::WindowRenderTarget::new(d2fac.clone(), &win)?;
         unsafe {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         }
         let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
-        Ok(RenderContext { d2fac, dwfac, rt, scb })
+        Ok(RenderContext { d2fac, dwfac, rt, scb, dpi })
     }
 
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
@@ -142,6 +165,10 @@ impl RenderContextExt for RenderContext {
             };
             self.rt.SetTransform(&s);
         }
+    }
+
+    fn pixels_to_points(&self, p: Point) -> Point {
+        Point::xy(p.x * (96.0 / self.dpi.0), p.y * (96.0 / self.dpi.1))
     }
 
     fn start_paint(&mut self) {

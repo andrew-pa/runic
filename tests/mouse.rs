@@ -43,9 +43,10 @@ impl App for TestApp {
 
 #[test]
 fn mouse() {
+    runic::init();
     let mut evl = EventsLoop::new();
     let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Mouse Test").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&window).expect("create render context!");
+    let mut rx = RenderContext::new(&mut window).expect("create render context!");
     let mut app = TestApp{mouse_loc: Point::xy(0.0,0.0), mouse_button: None};
     app.run(&mut rx, &mut evl);
 }
