@@ -35,8 +35,22 @@ impl Drop for PangoLayoutAuto {
 pub struct TextLayout(Rc<PangoLayoutAuto>);
 
 impl TextLayoutExt for TextLayout {
-    fn bounds(&self) -> Rect { Rect::xywh(0.0,0.0,0.0,0.0) }
-    fn char_bounds(&self, index: usize) -> Rect { Rect::xywh(0.0, 0.0,0.0,0.0) }
+    fn bounds(&self) -> Rect {
+        let mut w = 0i32;
+        let mut h = 0i32;
+        unsafe {
+            pango_layout_get_pixel_size((self.0).0, &mut w, &mut h);
+        }
+        Rect::xywh(0.0, 0.0, w as f32, h as f32)
+    }
+    fn char_bounds(&self, index: usize) -> Rect {
+            let mut rect: PangoRectangle = PangoRectangle{x:0,y:0,width:0,height:0};
+        unsafe {
+            pango_layout_index_to_pos((self.0).0, index as i32, &mut rect);
+        }
+        let ps = 1.0 / PANGO_SCALE as f32;
+        Rect::xywh(rect.x as f32 * ps, rect.y as f32 * ps, rect.width as f32 * ps, rect.height as f32 * ps)
+    }
 }
 
 

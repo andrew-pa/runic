@@ -176,8 +176,6 @@ pub trait RenderContextExt {
 /// The App trait represents an application that uses RenderContext to draw its interface.
 /// The `run` function is provided to conveniently set up the loop that handles winit events and
 /// redraws the App interface using `paint`
-use std::rc::Rc;
-use std::cell::RefCell;
 pub trait App {
     fn paint(&mut self, rx: &mut RenderContext);
     fn event(&mut self, e: winit::Event) -> bool;
