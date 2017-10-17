@@ -73,7 +73,15 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
         unsafe {
             let fd = pango_font_description_new();
-            pango_font_description_set_family(fd, name.as_ptr() as *const i8);
+
+            let rsname = name.as_bytes();
+            let mut szname = Vec::new();
+            for i in 0..rsname.len() {
+                szname.push(rsname[i]);
+            }
+            szname.push(0);
+            
+            pango_font_description_set_family(fd, szname.as_ptr() as *const i8);
             pango_font_description_set_size(fd, (size * PANGO_SCALE as f32) as i32);
             pango_font_description_set_weight(fd, match weight {
                 FontWeight::Light => PANGO_WEIGHT_LIGHT,
@@ -84,6 +92,7 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
                 FontStyle::Normal => PANGO_STYLE_NORMAL,
                 FontStyle::Italic => PANGO_STYLE_ITALIC
             });
+            
             Ok(Font(Rc::new(PangoFontDesc(fd))))
         }
     }

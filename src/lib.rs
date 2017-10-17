@@ -16,14 +16,14 @@ extern crate pangocairo_sys;
 #[cfg(any(target_os="macos", target_os="linux"))]
 extern crate gobject_sys;
 
-#[cfg(unix)]
+#[cfg(linux)]
 extern crate x11_dl;
 
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os="macos")]
 mod macos;
-#[cfg(unix)]
+#[cfg(linux)]
 mod unix;
 
 #[cfg(any(target_os="macos", target_os="linux"))]
@@ -33,7 +33,7 @@ mod cairo_context;
 use windows as imp;
 #[cfg(target_os="macos")]
 use macos as imp;
-#[cfg(unix)]
+#[cfg(linux)]
 use unix as imp;
 
 #[derive(Copy,Clone,Debug)]
