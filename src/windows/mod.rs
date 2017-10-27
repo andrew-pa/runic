@@ -39,7 +39,19 @@ impl TextLayoutExt for TextLayout {
         }
     }
 
-    fn hit_test(&self, p: Point) -> (usize, Rect) { (0, Rect::xywh(0.0, 0.0, 0.0, 0.0)) }
+    fn hit_test(&self, p: Point) -> Option<(usize, Rect)> {
+        unsafe {
+            let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
+            let mut inside:i32 = 0;
+            let mut trailing:i32 = 0;
+            (*self.p).HitTestPoint(p.x, p.y, &mut trailing, &mut inside, &mut ht);
+            if inside > 0 {
+                Some((ht.textPosition as usize, Rect::xywh(ht.left, ht.top, ht.width, ht.height)))
+            } else {
+                None
+            }
+        }
+    }
 }
 
 use winit::os::windows::WindowExt;
