@@ -21,5 +21,5 @@ pango-sys = "0.4"
 pangocairo-sys = "0.4"
 gobject-sys = "0.4"
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(linux)'.dependencies]
 x11-dl = "2.15"

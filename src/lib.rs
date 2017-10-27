@@ -16,14 +16,14 @@ extern crate pangocairo_sys;
 #[cfg(any(target_os="macos", target_os="linux"))]
 extern crate gobject_sys;
 
-#[cfg(unix)]
+#[cfg(linux)]
 extern crate x11_dl;
 
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os="macos")]
 mod macos;
-#[cfg(unix)]
+#[cfg(linux)]
 mod unix;
 
 #[cfg(any(target_os="macos", target_os="linux"))]
@@ -33,7 +33,7 @@ mod cairo_context;
 use windows as imp;
 #[cfg(target_os="macos")]
 use macos as imp;
-#[cfg(unix)]
+#[cfg(linux)]
 use unix as imp;
 
 #[derive(Copy,Clone,Debug)]
@@ -200,8 +200,6 @@ pub trait RenderContextExt {
 /// The App trait represents an application that uses RenderContext to draw its interface.
 /// The `run` function is provided to conveniently set up the loop that handles winit events and
 /// redraws the App interface using `paint`
-use std::rc::Rc;
-use std::cell::RefCell;
 pub trait App {
     fn paint(&mut self, rx: &mut RenderContext);
     fn event(&mut self, e: winit::Event) -> bool;

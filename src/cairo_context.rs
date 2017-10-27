@@ -35,8 +35,22 @@ impl Drop for PangoLayoutAuto {
 pub struct TextLayout(Rc<PangoLayoutAuto>);
 
 impl TextLayoutExt for TextLayout {
-    fn bounds(&self) -> Rect { Rect::xywh(0.0,0.0,0.0,0.0) }
-    fn char_bounds(&self, index: usize) -> Rect { Rect::xywh(0.0, 0.0,0.0,0.0) }
+    fn bounds(&self) -> Rect {
+        let mut w = 0i32;
+        let mut h = 0i32;
+        unsafe {
+            pango_layout_get_pixel_size((self.0).0, &mut w, &mut h);
+        }
+        Rect::xywh(0.0, 0.0, w as f32, h as f32)
+    }
+    fn char_bounds(&self, index: usize) -> Rect {
+            let mut rect: PangoRectangle = PangoRectangle{x:0,y:0,width:0,height:0};
+        unsafe {
+            pango_layout_index_to_pos((self.0).0, index as i32, &mut rect);
+        }
+        let ps = 1.0 / PANGO_SCALE as f32;
+        Rect::xywh(rect.x as f32 * ps, rect.y as f32 * ps, rect.width as f32 * ps, rect.height as f32 * ps)
+    }
 }
 
 
@@ -59,7 +73,15 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
         unsafe {
             let fd = pango_font_description_new();
-            pango_font_description_set_family(fd, name.as_ptr() as *const i8);
+
+            let rsname = name.as_bytes();
+            let mut szname = Vec::new();
+            for i in 0..rsname.len() {
+                szname.push(rsname[i]);
+            }
+            szname.push(0);
+            
+            pango_font_description_set_family(fd, szname.as_ptr() as *const i8);
             pango_font_description_set_size(fd, (size * PANGO_SCALE as f32) as i32);
             pango_font_description_set_weight(fd, match weight {
                 FontWeight::Light => PANGO_WEIGHT_LIGHT,
@@ -70,6 +92,7 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
                 FontStyle::Normal => PANGO_STYLE_NORMAL,
                 FontStyle::Italic => PANGO_STYLE_ITALIC
             });
+            
             Ok(Font(Rc::new(PangoFontDesc(fd))))
         }
     }
