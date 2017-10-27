@@ -137,6 +137,8 @@ pub trait TextLayoutExt {
 
     /// Calculate the bounding rectangle of the character at `index`
     fn char_bounds(&self, index: usize) -> Rect;
+
+    fn hit_test(&self, p: Point) -> (usize, Rect);
 }
 
 pub trait RenderContextExt {

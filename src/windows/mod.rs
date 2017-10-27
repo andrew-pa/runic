@@ -22,7 +22,6 @@ pub struct RenderContext {
 }
 
 impl TextLayoutExt for TextLayout {
-    
     fn bounds(&self) -> Rect {
         unsafe {
             let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
@@ -30,6 +29,7 @@ impl TextLayoutExt for TextLayout {
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
         }
     }
+
     fn char_bounds(&self, index: usize) -> Rect {
         unsafe {
             let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
@@ -38,6 +38,8 @@ impl TextLayoutExt for TextLayout {
             Rect::xywh(x, y, ht.width, ht.height)
         }
     }
+
+    fn hit_test(&self, p: Point) -> (usize, Rect) { (0, Rect::xywh(0.0, 0.0, 0.0, 0.0)) }
 }
 
 use winit::os::windows::WindowExt;
