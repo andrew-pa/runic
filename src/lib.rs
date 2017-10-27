@@ -144,6 +144,8 @@ pub trait TextLayoutExt {
     /// Calculate the bounding rectangle of the character at `index`
     fn char_bounds(&self, index: usize) -> Rect;
 
+    /// Calculate the index and bounding rectangle of the character under the point `p`, relative
+    /// to the layout's internal coordinate system, given by `bounds()`
     fn hit_test(&self, p: Point) -> Option<(usize, Rect)>;
 }
 
