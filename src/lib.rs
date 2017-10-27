@@ -218,7 +218,11 @@ pub trait App {
                     Event::WindowEvent { event: WindowEvent::MouseMoved { position, device_id }, window_id } => {
                         need_repaint = true;
                         let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                        running = !self.event(Event::WindowEvent { event: WindowEvent::MouseMoved { position: (a as f64, b as f64), device_id }, window_id });
+                        running = !self.event(Event::WindowEvent {
+                            event: WindowEvent::MouseMoved {
+                                position: (a as f64, b as f64), device_id
+                            }, window_id
+                        });
                     },
                     _ => {
                         need_repaint = true;
@@ -231,6 +235,7 @@ pub trait App {
                 self.paint(rx);
                 rx.end_paint();
             }
+            ::std::thread::sleep(::std::time::Duration::from_millis(10));
         }
         /*evloop.run_forever(|ee| {
             match ee.clone() {
