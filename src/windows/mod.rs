@@ -22,7 +22,6 @@ pub struct RenderContext {
 }
 
 impl TextLayoutExt for TextLayout {
-    
     fn bounds(&self) -> Rect {
         unsafe {
             let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
@@ -30,12 +29,27 @@ impl TextLayoutExt for TextLayout {
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
         }
     }
+
     fn char_bounds(&self, index: usize) -> Rect {
         unsafe {
             let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
             let (mut x, mut y) = (0.0, 0.0);
             (*self.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, &mut ht);
             Rect::xywh(x, y, ht.width, ht.height)
+        }
+    }
+
+    fn hit_test(&self, p: Point) -> Option<(usize, Rect)> {
+        unsafe {
+            let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
+            let mut inside:i32 = 0;
+            let mut trailing:i32 = 0;
+            (*self.p).HitTestPoint(p.x, p.y, &mut trailing, &mut inside, &mut ht);
+            if inside > 0 {
+                Some((ht.textPosition as usize, Rect::xywh(ht.left, ht.top, ht.width, ht.height)))
+            } else {
+                None
+            }
         }
     }
 }

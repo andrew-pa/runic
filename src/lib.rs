@@ -72,6 +72,12 @@ impl From<(f32, f32)> for Point {
     }
 }
 
+impl Default for Point {
+    fn default() -> Point {
+        Point { x: 0.0, y: 0.0 }
+    }
+}
+
 // should the whole API shift to f64??
 // at least Point should probably be Point<T>. Rect would also probably be enhanced
 // there is probably a crate with this stuff in it
@@ -137,6 +143,10 @@ pub trait TextLayoutExt {
 
     /// Calculate the bounding rectangle of the character at `index`
     fn char_bounds(&self, index: usize) -> Rect;
+
+    /// Calculate the index and bounding rectangle of the character under the point `p`, relative
+    /// to the layout's internal coordinate system, given by `bounds()`
+    fn hit_test(&self, p: Point) -> Option<(usize, Rect)>;
 }
 
 pub trait RenderContextExt {

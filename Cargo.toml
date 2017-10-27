@@ -4,7 +4,7 @@ version = "0.5.0"
 authors = ["Andrew <andrew.pa@outlook.com>"]
 
 [dependencies]
-winit = "0.7"
+winit = "0.8"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.2"
