@@ -34,6 +34,12 @@ impl Drop for PangoLayoutAuto {
 
 pub struct TextLayout(Rc<PangoLayoutAuto>);
 
+impl Clone for TextLayout {
+    fn clone(&self) -> Self {
+        TextLayout(self.0.clone())
+    }
+}
+
 impl TextLayoutExt for TextLayout {
     fn bounds(&self) -> Rect {
         let mut w = 0i32;
@@ -51,6 +57,18 @@ impl TextLayoutExt for TextLayout {
         let ps = 1.0 / PANGO_SCALE as f32;
         Rect::xywh(rect.x as f32 * ps, rect.y as f32 * ps, rect.width as f32 * ps, rect.height as f32 * ps)
     }
+    
+    fn hit_test(&self, p: Point) -> Option<(usize, Rect)> {
+        let mut index: i32 = 0;
+        let mut trailing : i32 = 0;
+        unsafe {
+            if pango_layout_xy_to_index((self.0).0, (p.x * PANGO_SCALE as f32) as i32, (p.y * PANGO_SCALE as f32) as i32, &mut index, &mut trailing) > 0 {
+                Some((index as usize, self.char_bounds(index as usize)))
+            } else {
+                None
+            }
+        }
+    }
 }
 
 
@@ -61,6 +79,7 @@ pub trait CairoSurface {
     fn resize(&mut self, w: u32, h: u32);
     fn surface(&self) -> *mut cairo_surface_t;
     fn bounds(&self) -> Rect;
+    fn pixels_to_points(&self, p: Point) -> Point;
 }
 
 pub struct CairoRenderContext<S: CairoSurface> {
@@ -204,5 +223,5 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
         }
     }
 
-    fn pixels_to_points(&self, p: Point) -> Point { p }
+    fn pixels_to_points(&self, p: Point) -> Point { self.surface.pixels_to_points(p) }
 }

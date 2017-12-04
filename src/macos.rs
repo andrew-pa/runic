@@ -65,7 +65,7 @@ impl cairo_context::CairoSurface for QuartzCairoSurface {
             cairo_surface_set_device_offset(surf, offset.0, offset.1 + height as f64);
             cairo_surface_set_device_scale(surf, scale.0, -scale.1);
             Ok(QuartzCairoSurface{
-                qgx: nsgx, surf, size: (width, height), dpi_factor: win.hidpi_factor()
+                qgx: nsgx, surf, size: (width, height), dpi_factor: 1.0 / win.hidpi_factor()
             })
         }
     }
@@ -83,7 +83,7 @@ impl cairo_context::CairoSurface for QuartzCairoSurface {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        self.size = ((width as f32/self.dpi_factor) as u32, (height as f32/self.dpi_factor) as u32);
+        self.size = ((width as f32*self.dpi_factor) as u32, (height as f32*self.dpi_factor) as u32);
         unsafe {
             let cg: *mut c_void = msg_send![self.qgx, graphicsPort];
             cairo_surface_destroy(self.surf);
@@ -93,8 +93,18 @@ impl cairo_context::CairoSurface for QuartzCairoSurface {
             let mut scale: (f64, f64) = (0.0, 0.0);
             cairo_surface_get_device_offset(self.surf, &mut offset.0, &mut offset.1);
             cairo_surface_get_device_scale(self.surf, &mut scale.0, &mut scale.1);
-            cairo_surface_set_device_offset(self.surf, offset.0, offset.1 + height as f64 / self.dpi_factor as f64);
+            cairo_surface_set_device_offset(self.surf, offset.0, offset.1 + height as f64 * self.dpi_factor as f64);
             cairo_surface_set_device_scale(self.surf, scale.0, -scale.1);
         }
+    }
+
+    fn pixels_to_points(&self, p: Point) -> Point {
+        let mut offset: (f64, f64) = (0.0, 0.0);
+        let mut scale: (f64, f64) = (0.0, 0.0);
+        unsafe {
+            cairo_surface_get_device_offset(self.surf, &mut offset.0, &mut offset.1);
+            cairo_surface_get_device_scale(self.surf, &mut scale.0, &mut scale.1);
+        }
+        Point::xy((p.x + offset.0 as f32)*scale.0 as f32*self.dpi_factor, (p.y + offset.0 as f32)*-scale.1 as f32*self.dpi_factor)
     }
 }
