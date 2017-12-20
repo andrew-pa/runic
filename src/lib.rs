@@ -45,6 +45,35 @@ impl Point {
     }
 }
 
+impl std::ops::Add for Point {
+    type Output = Point;
+
+    fn add(self, other: Point) -> Point {
+        Point { x: self.x + other.x, y: self.y + other.y }
+    }
+}
+impl std::ops::Sub for Point {
+    type Output = Point;
+
+    fn sub(self, other: Point) -> Point {
+        Point { x: self.x - other.x, y: self.y - other.y }
+    }
+}
+impl<'a> std::ops::Add for &'a Point {
+    type Output = Point;
+
+    fn add(self, other: &Point) -> Point {
+        Point { x: self.x + other.x, y: self.y + other.y }
+    }
+}
+impl<'a> std::ops::Sub for &'a Point {
+    type Output = Point;
+
+    fn sub(self, other: &Point) -> Point {
+        Point { x: self.x - other.x, y: self.y - other.y }
+    }
+}
+
 impl std::ops::Index<u8> for Point {
     type Output = f32;
     fn index(&self, index: u8) -> &f32 {
@@ -92,18 +121,23 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// Create a rectangle from coordinates and extents
     pub fn xywh(x: f32, y: f32, w: f32, h: f32) -> Rect {
         Rect { x, y, w, h }
     }
+    /// Create a rectangle from a point and extents
     pub fn pnwh(p: Point, w: f32, h: f32) -> Rect {
         Rect { x: p.x, y: p.y, w, h }
     }
+    /// Create a rectangle from a point and a 'point' containing the extents
     pub fn from_points(p: Point, size: Point) -> Rect {
         Rect { x: p.x, y: p.y, w: size.x, h: size.y }
     }
+    /// Returns a new rectangle the same size as this one but offset by `p`
     pub fn offset(&self, p: Point) -> Rect {
         Rect { x: self.x + p.x, y: self.y + p.y, ..*self }
     }
+    /// Returns whether `p` is contained in this rectangle
     pub fn contains(&self, p: Point) -> bool {
         p.x >= self.x && p.y >= self.y && p.x <= self.x+self.w && p.y <= self.y+self.h
     }
@@ -123,6 +157,20 @@ impl Color {
     /// Create a color with transparency
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
+    }
+
+    pub fn black() -> Color { Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 } }
+    pub fn white() -> Color { Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 } }
+
+    /// Linearly interpolate between two colors
+    pub fn mix(&self, other: Color, t: f32) -> Color {
+        let omt = 1.0 - t;
+        Color {
+            r: self.r*omt + other.r*t,
+            g: self.g*omt + other.g*t,
+            b: self.b*omt + other.b*t,
+            a: self.a*omt + other.a*t    
+        }
     }
 }
 
@@ -147,6 +195,7 @@ pub trait TextLayoutExt {
     /// Calculate the index and bounding rectangle of the character under the point `p`, relative
     /// to the layout's internal coordinate system, given by `bounds()`
     fn hit_test(&self, p: Point) -> Option<(usize, Rect)>;
+
 }
 
 pub trait RenderContextExt {
@@ -240,36 +289,47 @@ pub trait App {
                     }
                 };
             });
-            if need_repaint {
+            if running && need_repaint {
                 rx.start_paint();
                 self.paint(rx);
                 rx.end_paint();
+                ::std::thread::sleep(::std::time::Duration::from_millis(1)); 
             }
-            ::std::thread::sleep(::std::time::Duration::from_millis(10));
         }
         /*evloop.run_forever(|ee| {
-            match ee.clone() {
-                Event::WindowEvent { event: e, .. } => {
-                    match e {
-                        WindowEvent::Closed => ControlFlow::Break,
-                        WindowEvent::Resized(w, h) => {
-                            rx.resize(w,h);
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
-                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
-                        },
-                        _ => {
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
-                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
-                        } 
-                    }
-                },
-                _ => ControlFlow::Continue
-            }
-        });*/
+          match ee.clone() {
+          Event::WindowEvent { event: e, window_id, .. } => {
+          match e {
+          WindowEvent::Closed => ControlFlow::Break,
+          WindowEvent::MouseMoved { position, device_id } => {
+          rx.start_paint();
+          self.paint(rx);
+          rx.end_paint();
+          let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+          if self.event(Event::WindowEvent {
+          event: WindowEvent::MouseMoved {
+          position: (a as f64, b as f64), device_id
+          }, window_id
+          }) { ControlFlow::Break } else { ControlFlow::Continue }
+          },
+          WindowEvent::Resized(w, h) => {
+          rx.resize(w,h);
+          rx.start_paint();
+          self.paint(rx);
+          rx.end_paint();
+          if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
+          },
+          _ => {
+          rx.start_paint();
+          self.paint(rx);
+          rx.end_paint();
+          if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
+          } 
+          }
+          },
+          _ => ControlFlow::Continue
+          }
+          });*/
     }
 }
 
