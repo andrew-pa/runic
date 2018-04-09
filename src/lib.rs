@@ -1,5 +1,6 @@
 extern crate winit;
 use std::error::Error;
+use std::ops::Range;
 
 #[cfg(target_os="macos")]
 #[macro_use]
@@ -196,6 +197,10 @@ pub trait TextLayoutExt {
     /// to the layout's internal coordinate system, given by `bounds()`
     fn hit_test(&self, p: Point) -> Option<(usize, Rect)>;
 
+    fn color_range(&self, rx: &RenderContext, range: Range<u32>, col: Color);
+    fn style_range(&self, range: Range<u32>, style: FontStyle);
+    fn weight_range(&self, range: Range<u32>, weight: FontWeight);
+    fn underline_range(&self, range: Range<u32>, ul: bool);
 }
 
 pub trait RenderContextExt {
@@ -274,13 +279,14 @@ pub trait App {
                         need_repaint = true;
                         running = !self.event(e);
                     },
-                    Event::WindowEvent { event: WindowEvent::MouseMoved { position, device_id }, window_id } => {
+                    Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
                         need_repaint = true;
                         let Point {x:a, y:b} = rx.pixels_to_points(position.into());
                         running = !self.event(Event::WindowEvent {
-                            event: WindowEvent::MouseMoved {
-                                position: (a as f64, b as f64), device_id
-                            }, window_id
+                            event: WindowEvent::CursorMoved {
+                                position: (a as f64, b as f64), device_id, modifiers
+                            },
+                            window_id
                         });
                     },
                     _ => {

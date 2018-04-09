@@ -1,11 +1,22 @@
 #![allow(dead_code)]
 #![allow(non_upper_case_globals)]
 extern crate winapi;
-extern crate user32;
-extern crate kernel32;
 pub use self::winapi::*;
-pub use self::user32::*;
-pub use self::kernel32::*;
+pub use self::winapi::shared::minwindef::*;
+pub use self::winapi::shared::basetsd::*;
+pub use self::winapi::um::winbase::*;
+pub use self::winapi::um::winuser::*;
+pub use self::winapi::shared::windef::*;
+pub use self::winapi::shared::guiddef::*;
+pub use self::winapi::um::unknwnbase::*;
+pub use self::winapi::shared::winerror::*;
+pub use self::winapi::um::d2d1::*;
+pub use self::winapi::um::d2dbasetypes::*;
+pub use self::winapi::um::dwrite::*;
+pub use self::winapi::um::dcommon::*;
+pub use self::winapi::shared::dxgiformat::*;
+pub use self::winapi::um::errhandlingapi::*;
+pub use self::winapi::ctypes::*;
 
 
 use std::fmt;
@@ -136,7 +147,7 @@ impl Factory {
         let null_opts: *const D2D1_FACTORY_OPTIONS = null();
         let mut fac: *mut ID2D1Factory = null_mut();
         unsafe {
-            D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &UuidOfID2D1Factory, null_opts, &mut fac).into_result(|| Com::from_ptr(fac))
+            D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &ID2D1Factory::uuidof(), null_opts, &mut fac).into_result(|| Com::from_ptr(fac))
         }
     }
 }
@@ -150,7 +161,7 @@ use winit::os::windows::WindowExt;
 
 impl WindowRenderTarget {
     pub fn new(mut fct: Factory, win: &Window) -> Result<WindowRenderTarget, HResultError> {
-        let rc = win.get_inner_size_pixels().ok_or(HResultError::new(E_FAIL))?;
+        let rc = win.get_inner_size().ok_or(HResultError::new(E_FAIL))?;
         let size = D2D_SIZE_U { width: rc.0, height: rc.1 };
         let pxfmt = D2D1_PIXEL_FORMAT {
             format: DXGI_FORMAT_B8G8R8A8_UNORM,
@@ -183,10 +194,10 @@ impl WindowRenderTarget {
 
 
 impl Brush {
-    pub fn solid_color(mut rt: WindowRenderTarget, col: D2D1_COLOR_F) -> Result<Brush, HResultError> {
+    pub fn solid_color(rt: &WindowRenderTarget, col: D2D1_COLOR_F) -> Result<Brush, HResultError> {
         unsafe {
             let mut brsh: *mut ID2D1SolidColorBrush = null_mut();
-            rt.CreateSolidColorBrush(&col, null_mut(), &mut brsh).into_result(|| Com::from_ptr(transmute(brsh)))
+            (*rt.p).CreateSolidColorBrush(&col, null_mut(), &mut brsh).into_result(|| Com::from_ptr(transmute(brsh)))
         }
     }
 

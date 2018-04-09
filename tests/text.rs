@@ -42,7 +42,7 @@ impl App for TestApp {
     fn event(&mut self, e: Event) -> bool {
         match e {
             Event::WindowEvent { event: e, .. } => match e {
-                WindowEvent::MouseMoved { position: (x,y), .. } => {
+                WindowEvent::CursorMoved { position: (x,y), .. } => {
                     self.mouse_pos = Point::xy(x as f32, y as f32);
                 }
                 _=>{}

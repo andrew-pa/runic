@@ -52,6 +52,42 @@ impl TextLayoutExt for TextLayout {
             }
         }
     }
+
+    fn color_range(&self, rx: &RenderContext, range: Range<u32>, col: Color) {
+        unsafe {
+            let r = vgu::DWRITE_TEXT_RANGE { startPosition: range.start, length: range.len() as u32 };
+            let brush = vgu::Brush::solid_color(&rx.rt, vgu::D2D1_COLOR_F{r:col.r, g:col.g, b:col.b, a:col.a}).expect("create color brush");
+            (*self.p).SetDrawingEffect(::std::mem::transmute(brush.p), r);
+        }
+    }
+
+    fn style_range(&self, range: Range<u32>, style: FontStyle) {
+        unsafe {
+            let r = vgu::DWRITE_TEXT_RANGE { startPosition: range.start, length: range.len() as u32 };
+            (*self.p).SetFontStyle(match style {
+                                     FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
+                                     FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
+                                 }, r);
+        }
+    }
+
+    fn weight_range(&self, range: Range<u32>, weight: FontWeight) {
+        unsafe {
+            let r = vgu::DWRITE_TEXT_RANGE { startPosition: range.start, length: range.len() as u32 };
+            (*self.p).SetFontWeight(match weight {
+                                     FontWeight::Light => vgu::DWRITE_FONT_WEIGHT_LIGHT,
+                                     FontWeight::Regular => vgu::DWRITE_FONT_WEIGHT_REGULAR,
+                                     FontWeight::Bold => vgu::DWRITE_FONT_WEIGHT_BOLD
+                                 }, r);
+        }
+    }
+    
+    fn underline_range(&self, range: Range<u32>, ul: bool) {
+        unsafe {
+            let r = vgu::DWRITE_TEXT_RANGE { startPosition: range.start, length: range.len() as u32 };
+            (*self.p).SetUnderline(if ul { 1 } else { 0 }, r);
+        }
+    }
 }
 
 use winit::os::windows::WindowExt;
@@ -61,7 +97,7 @@ impl RenderContextExt for RenderContext {
         let dwfac = vgu::TextFactory::new()?;
         let mut dpi: (f32, f32) = (0.0, 0.0);
         unsafe { (*d2fac.p).GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
-        let (width, height) = win.get_inner_size_pixels().ok_or("fail")?;
+        let (width, height) = win.get_inner_size().ok_or("fail")?;
         unsafe {
             let wnd = win.get_hwnd() as vgu::HWND;
             let mut rect = vgu::RECT {
@@ -78,7 +114,7 @@ impl RenderContextExt for RenderContext {
         unsafe {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         }
-        let scb = vgu::Brush::solid_color(rt.clone(), vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
+        let scb = vgu::Brush::solid_color(&rt, vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
         Ok(RenderContext { d2fac, dwfac, rt, scb, dpi })
     }
 
@@ -164,8 +200,7 @@ impl RenderContextExt for RenderContext {
 
     fn bounds(&self) -> Rect {
         unsafe {
-            let mut s: vgu::D2D1_SIZE_F = std::mem::uninitialized();
-            (*self.rt.p).GetSize(&mut s);
+            let s: vgu::D2D1_SIZE_F = (*self.rt.p).GetSize();
             Rect::xywh(0.0, 0.0, s.width, s.height)
         }
     }

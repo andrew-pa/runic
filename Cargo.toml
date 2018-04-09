@@ -1,15 +1,13 @@
 [package]
 name = "runic"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["Andrew <andrew.pa@outlook.com>"]
 
 [dependencies]
-winit = "0.8"
+winit = "0.11"
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.2"
-user32-sys = "0.1"
-kernel32-sys = "0.2"
+winapi = { version = "0.3", features = ["winuser", "winbase", "d2d1" ] }
 
 [target.'cfg(target_os="macos")'.dependencies]
 objc = "0.2"
