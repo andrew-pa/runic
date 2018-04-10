@@ -8,7 +8,7 @@ use std::rc::Rc;
 use cairo_sys::*;
 use pango_sys::*;
 use pangocairo_sys::*;
-use gobject_sys::g_object_unref;
+use gobject_sys::{g_object_unref, g_object_ref};
 
 struct PangoFontDesc(*mut PangoFontDescription);
 
@@ -22,9 +22,16 @@ impl Drop for PangoFontDesc {
 
 pub struct Font(Rc<PangoFontDesc>);
 
-struct PangoLayoutAuto(*mut PangoLayout);
+struct GObject<T>(*mut T);
 
-impl Drop for PangoLayoutAuto {
+impl<T> Clone for GObject<T>{
+    fn clone(&self) -> GObject<T> {
+        unsafe { g_object_ref(transmute(self.0)); }
+        GObject(self.0)
+    }
+}
+
+impl<T> Drop for GObject<T>{
     fn drop(&mut self) {
         unsafe {
             g_object_unref(transmute(self.0));
@@ -32,14 +39,29 @@ impl Drop for PangoLayoutAuto {
     }
 }
 
-pub struct TextLayout(Rc<PangoLayoutAuto>);
+fn convert_weight(weight: FontWeight) -> pango_sys::PangoWeight {
+    match weight {
+        FontWeight::Light => PANGO_WEIGHT_LIGHT,
+        FontWeight::Regular => PANGO_WEIGHT_MEDIUM,
+        FontWeight::Bold => PANGO_WEIGHT_BOLD
+    }
+}
+
+fn convert_style(style: FontStyle) -> pango_sys::PangoStyle {
+    match style {
+        FontStyle::Normal => PANGO_STYLE_NORMAL,
+        FontStyle::Italic => PANGO_STYLE_ITALIC
+    }
+}
+
+pub struct TextLayout(Rc<GObject<PangoLayout>>);
 
 impl Clone for TextLayout {
     fn clone(&self) -> Self {
         TextLayout(self.0.clone())
     }
 }
-
+    
 impl TextLayoutExt for TextLayout {
     fn bounds(&self) -> Rect {
         let mut w = 0i32;
@@ -67,6 +89,63 @@ impl TextLayoutExt for TextLayout {
             } else {
                 None
             }
+        }
+    }
+
+    fn color_range(&self, _: &RenderContext, range: Range<u32>, col: Color) {
+        unsafe {
+            let mut attrs = pango_layout_get_attributes((self.0).0);
+            if attrs == std::ptr::null_mut() {
+                attrs = pango_attr_list_new();
+                pango_layout_set_attributes((self.0).0, attrs);
+            }
+            let mut attr = pango_attr_foreground_new((col.r*65535.0) as u16, (col.g*65535.0) as u16, (col.b*65535.0) as u16);
+            (*attr).start_index = range.start;
+            (*attr).end_index = range.end;
+            pango_attr_list_change(attrs, attr);
+        }
+    }
+    fn style_range(&self, range: Range<u32>, style: FontStyle) {
+        unsafe {
+            let mut attrs = pango_layout_get_attributes((self.0).0);
+            if attrs == std::ptr::null_mut() {
+                attrs = pango_attr_list_new();
+                pango_layout_set_attributes((self.0).0, attrs);
+            }
+            let mut attr = pango_attr_style_new(convert_style(style));
+            (*attr).start_index = range.start;
+            (*attr).end_index = range.end;
+            pango_attr_list_change(attrs, attr);
+        }
+    }
+    fn weight_range(&self, range: Range<u32>, weight: FontWeight) {
+        unsafe {
+            let mut attrs = pango_layout_get_attributes((self.0).0);
+            if attrs == std::ptr::null_mut() {
+                attrs = pango_attr_list_new();
+                pango_layout_set_attributes((self.0).0, attrs);
+            }
+            let mut attr = pango_attr_weight_new(convert_weight(weight));
+            (*attr).start_index = range.start;
+            (*attr).end_index = range.end;
+            pango_attr_list_change(attrs, attr);
+        }
+    }
+    fn underline_range(&self, range: Range<u32>, ul: bool) {
+        unsafe {
+            let mut attrs = pango_layout_get_attributes((self.0).0);
+            if attrs == std::ptr::null_mut() {
+                attrs = pango_attr_list_new();
+                pango_layout_set_attributes((self.0).0, attrs);
+            }
+            let mut attr = pango_attr_underline_new(if ul {
+                PANGO_UNDERLINE_SINGLE
+            } else {
+                PANGO_UNDERLINE_NONE
+            });
+            (*attr).start_index = range.start;
+            (*attr).end_index = range.end;
+            pango_attr_list_change(attrs, attr);
         }
     }
 }
@@ -102,15 +181,8 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
             
             pango_font_description_set_family(fd, szname.as_ptr() as *const i8);
             pango_font_description_set_size(fd, (size * PANGO_SCALE as f32) as i32);
-            pango_font_description_set_weight(fd, match weight {
-                FontWeight::Light => PANGO_WEIGHT_LIGHT,
-                FontWeight::Regular => PANGO_WEIGHT_MEDIUM,
-                FontWeight::Bold => PANGO_WEIGHT_BOLD
-            });
-            pango_font_description_set_style(fd, match style {
-                FontStyle::Normal => PANGO_STYLE_NORMAL,
-                FontStyle::Italic => PANGO_STYLE_ITALIC
-            });
+            pango_font_description_set_weight(fd, convert_weight(weight));
+            pango_font_description_set_style(fd, convert_style(style));
             
             Ok(Font(Rc::new(PangoFontDesc(fd))))
         }
@@ -121,7 +193,7 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
             let ly = pango_layout_new(self.pg);
             pango_layout_set_text(ly, text.as_ptr() as *const i8, text.len() as i32);
             pango_layout_set_font_description(ly, (f.0).0);
-            Ok(TextLayout(Rc::new(PangoLayoutAuto(ly))))
+            Ok(TextLayout(Rc::new(GObject(ly))))
         }
     }
 

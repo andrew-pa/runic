@@ -11,7 +11,7 @@ winapi = { version = "0.3", features = ["winuser", "winbase", "d2d1" ] }
 
 [target.'cfg(target_os="macos")'.dependencies]
 objc = "0.2"
-cocoa = "0.9"
+cocoa = "0.14"
 
 [target.'cfg(any(target_os="macos", target_os="linux"))'.dependencies]
 cairo-sys-rs = "0.4"
