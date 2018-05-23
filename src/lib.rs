@@ -44,6 +44,13 @@ impl Point {
     pub fn xy(x: f32, y: f32) -> Point {
         Point { x, y }
     }
+
+    pub fn x(x: f32) -> Point {
+        Point { x, y: 0.0 }
+    }
+    pub fn y(y: f32) -> Point {
+        Point { x: 0.0, y }
+    }
 }
 
 impl std::ops::Add for Point {
@@ -122,6 +129,11 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// Create a rectangle at the origin with given extents
+    pub fn wh(w: f32, h: f32) -> Rect {
+        Rect { x: 0.0, y: 0.0, w, h }
+    }
+
     /// Create a rectangle from coordinates and extents
     pub fn xywh(x: f32, y: f32, w: f32, h: f32) -> Rect {
         Rect { x, y, w, h }
@@ -273,7 +285,7 @@ pub trait App {
             let mut need_repaint = false;
             evloop.poll_events(|e| {
                 match e {
-                    Event::WindowEvent { event: WindowEvent::Closed, .. } => { running = false },
+                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { running = false },
                     Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
                         rx.resize(w,h);
                         need_repaint = true;
@@ -299,7 +311,7 @@ pub trait App {
                 rx.start_paint();
                 self.paint(rx);
                 rx.end_paint();
-                ::std::thread::sleep(::std::time::Duration::from_millis(1)); 
+                ::std::thread::sleep(::std::time::Duration::from_millis(6)); 
             }
         }
         /*evloop.run_forever(|ee| {
