@@ -88,6 +88,13 @@ impl TextLayoutExt for TextLayout {
             (*self.p).SetUnderline(if ul { 1 } else { 0 }, r);
         }
     }
+
+    fn size_range(&self, range: Range<u32>, size: f32) {
+        unsafe {
+            let r = vgu::DWRITE_TEXT_RANGE { startPosition: range.start, length: range.len() as u32 };
+            (*self.p).SetFontSize(size, r);
+        }
+    }
 }
 
 use winit::os::windows::WindowExt;

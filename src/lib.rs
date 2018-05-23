@@ -213,6 +213,7 @@ pub trait TextLayoutExt {
     fn style_range(&self, range: Range<u32>, style: FontStyle);
     fn weight_range(&self, range: Range<u32>, weight: FontWeight);
     fn underline_range(&self, range: Range<u32>, ul: bool);
+    fn size_range(&self, range: Range<u32>, size: f32);
 }
 
 pub trait RenderContextExt {

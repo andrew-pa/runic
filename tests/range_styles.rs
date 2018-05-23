@@ -24,6 +24,7 @@ impl TestApp {
         layout.weight_range(0..3, FontWeight::Light);
         layout.weight_range(31..34, FontWeight::Light);
         layout.underline_range(26..30, true);
+        layout.size_range(23..30, 20.0);
         let layout2 = rx.new_text_layout("This layout has dynamic styling!", &font, 1000.0, 128.0).expect("create text layout");
         TestApp {
             font, layout, layout2
