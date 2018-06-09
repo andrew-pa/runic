@@ -20,6 +20,7 @@ impl Drop for PangoFontDesc {
     }
 }
 
+#[derive(Clone)]
 pub struct Font(Rc<PangoFontDesc>);
 
 struct GObject<T>(*mut T);
@@ -143,6 +144,19 @@ impl TextLayoutExt for TextLayout {
             } else {
                 PANGO_UNDERLINE_NONE
             });
+            (*attr).start_index = range.start;
+            (*attr).end_index = range.end;
+            pango_attr_list_change(attrs, attr);
+        }
+    }
+    fn size_range(&self, range: Range<u32>, size: f32) {
+        unsafe {
+            let mut attrs = pango_layout_get_attributes((self.0).0);
+            if attrs == std::ptr::null_mut() {
+                attrs = pango_attr_list_new();
+                pango_layout_set_attributes((self.0).0, attrs);
+            }
+            let mut attr = pango_attr_size_new((size * PANGO_SCALE as f32) as i32);
             (*attr).start_index = range.start;
             (*attr).end_index = range.end;
             pango_attr_list_change(attrs, attr);

@@ -281,7 +281,7 @@ pub trait App {
 
     fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
         use winit::*;
-        let mut running = true;
+        /*let mut running = true;
         while running {
             let mut need_repaint = false;
             evloop.poll_events(|e| {
@@ -314,41 +314,41 @@ pub trait App {
                 rx.end_paint();
                 ::std::thread::sleep(::std::time::Duration::from_millis(6)); 
             }
-        }
-        /*evloop.run_forever(|ee| {
-          match ee.clone() {
-          Event::WindowEvent { event: e, window_id, .. } => {
-          match e {
-          WindowEvent::Closed => ControlFlow::Break,
-          WindowEvent::MouseMoved { position, device_id } => {
-          rx.start_paint();
-          self.paint(rx);
-          rx.end_paint();
-          let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-          if self.event(Event::WindowEvent {
-          event: WindowEvent::MouseMoved {
-          position: (a as f64, b as f64), device_id
-          }, window_id
-          }) { ControlFlow::Break } else { ControlFlow::Continue }
-          },
-          WindowEvent::Resized(w, h) => {
-          rx.resize(w,h);
-          rx.start_paint();
-          self.paint(rx);
-          rx.end_paint();
-          if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
-          },
-          _ => {
-          rx.start_paint();
-          self.paint(rx);
-          rx.end_paint();
-          if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
-          } 
-          }
-          },
-          _ => ControlFlow::Continue
-          }
-          });*/
+        }*/
+        evloop.run_forever(|ee| {
+            match ee.clone() {
+                Event::WindowEvent { event: e, window_id, .. } => {
+                    match e {
+                        WindowEvent::CloseRequested => ControlFlow::Break,
+                        WindowEvent::CursorMoved { position, device_id, modifiers } => {
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+                            if self.event(Event::WindowEvent {
+                                event: WindowEvent::CursorMoved {
+                                    position: (a as f64, b as f64), device_id, modifiers
+                                }, window_id
+                            }) { ControlFlow::Break } else { ControlFlow::Continue }
+                        },
+                        WindowEvent::Resized(w, h) => {
+                            rx.resize(w,h);
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
+                        },
+                        _ => {
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
+                        } 
+                    }
+                },
+                _ => ControlFlow::Continue
+            }
+        });
     }
 }
 
