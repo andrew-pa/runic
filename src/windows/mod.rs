@@ -14,7 +14,6 @@ pub type Font = vgu::Com<vgu::IDWriteTextFormat>;
 pub type TextLayout = vgu::Com<vgu::IDWriteTextLayout>;
 
 pub struct RenderContext {
-    d2fac: vgu::Factory,
     dwfac: vgu::TextFactory,
     rt: vgu::WindowRenderTarget,
     scb: vgu::Brush,
@@ -122,7 +121,7 @@ impl RenderContextExt for RenderContext {
             (*rt.p).SetTextAntialiasMode(vgu::D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         }
         let scb = vgu::Brush::solid_color(&rt, vgu::D2D1_COLOR_F{r:0.0,g:0.0,b:0.0,a:1.0})?;
-        Ok(RenderContext { d2fac, dwfac, rt, scb, dpi })
+        Ok(RenderContext { dwfac, rt, scb, dpi })
     }
 
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {

@@ -160,7 +160,7 @@ use winit::Window;
 use winit::os::windows::WindowExt;
 
 impl WindowRenderTarget {
-    pub fn new(mut fct: Factory, win: &Window) -> Result<WindowRenderTarget, HResultError> {
+    pub fn new(fct: Factory, win: &Window) -> Result<WindowRenderTarget, HResultError> {
         let rc = win.get_inner_size().ok_or(HResultError::new(E_FAIL))?;
         let size = D2D_SIZE_U { width: rc.0, height: rc.1 };
         let pxfmt = D2D1_PIXEL_FORMAT {

@@ -281,9 +281,34 @@ pub trait App {
 
     fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
         use winit::*;
-        /*let mut running = true;
+        let mut running = true;
         while running {
             let mut need_repaint = false;
+            evloop.run_forever(|e| {
+                match e {
+                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { running = false },
+                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
+                        rx.resize(w,h);
+                        need_repaint = true;
+                        running = !self.event(e);
+                    },
+                    Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
+                        need_repaint = true;
+                        let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+                        running = !self.event(Event::WindowEvent {
+                            event: WindowEvent::CursorMoved {
+                                position: (a as f64, b as f64), device_id, modifiers
+                            },
+                            window_id
+                        });
+                    },
+                    _ => {
+                        need_repaint = true;
+                        running = !self.event(e);
+                    }
+                };
+                ControlFlow::Break
+            });
             evloop.poll_events(|e| {
                 match e {
                     Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { running = false },
@@ -312,24 +337,25 @@ pub trait App {
                 rx.start_paint();
                 self.paint(rx);
                 rx.end_paint();
-                ::std::thread::sleep(::std::time::Duration::from_millis(6)); 
+                //::std::thread::sleep(::std::time::Duration::from_millis(6)); 
             }
-        }*/
-        evloop.run_forever(|ee| {
+        }
+        /*evloop.run_forever(|ee| {
             match ee.clone() {
                 Event::WindowEvent { event: e, window_id, .. } => {
                     match e {
                         WindowEvent::CloseRequested => ControlFlow::Break,
                         WindowEvent::CursorMoved { position, device_id, modifiers } => {
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
                             let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                            if self.event(Event::WindowEvent {
+                            let r = if self.event(Event::WindowEvent {
                                 event: WindowEvent::CursorMoved {
                                     position: (a as f64, b as f64), device_id, modifiers
                                 }, window_id
-                            }) { ControlFlow::Break } else { ControlFlow::Continue }
+                            }) { ControlFlow::Break } else { ControlFlow::Continue };
+                            rx.start_paint();
+                            self.paint(rx);
+                            rx.end_paint();
+                            r
                         },
                         WindowEvent::Resized(w, h) => {
                             rx.resize(w,h);
@@ -348,7 +374,7 @@ pub trait App {
                 },
                 _ => ControlFlow::Continue
             }
-        });
+        });*/
     }
 }
 
