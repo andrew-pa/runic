@@ -1,5 +1,5 @@
 use super::*;
-use std::mem::uninitialized;
+use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 
 mod vgu; //handle lowest level COM stuff
@@ -23,27 +23,30 @@ pub struct RenderContext {
 impl TextLayoutExt for TextLayout {
     fn bounds(&self) -> Rect {
         unsafe {
-            let mut metrics: vgu::DWRITE_TEXT_METRICS = uninitialized();
-            (*self.p).GetMetrics(&mut metrics);
+            let mut metrics: MaybeUninit<vgu::DWRITE_TEXT_METRICS> = MaybeUninit::uninit();
+            (*self.p).GetMetrics(metrics.as_mut_ptr());
+            let metrics = metrics.assume_init();
             Rect::xywh(metrics.left, metrics.top, metrics.width, metrics.height)
         }
     }
 
     fn char_bounds(&self, index: usize) -> Rect {
         unsafe {
-            let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
+            let mut ht: MaybeUninit<vgu::DWRITE_HIT_TEST_METRICS> = MaybeUninit::uninit();
             let (mut x, mut y) = (0.0, 0.0);
-            (*self.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, &mut ht);
+            (*self.p).HitTestTextPosition(index as u32, 0, &mut x, &mut y, ht.as_mut_ptr());
+            let ht = ht.assume_init();
             Rect::xywh(x, y, ht.width, ht.height)
         }
     }
 
     fn hit_test(&self, p: Point) -> Option<(usize, Rect)> {
         unsafe {
-            let mut ht: vgu::DWRITE_HIT_TEST_METRICS = uninitialized();
+            let mut ht: MaybeUninit<vgu::DWRITE_HIT_TEST_METRICS> = MaybeUninit::uninit();
             let mut inside:i32 = 0;
             let mut trailing:i32 = 0;
-            (*self.p).HitTestPoint(p.x, p.y, &mut trailing, &mut inside, &mut ht);
+            (*self.p).HitTestPoint(p.x, p.y, &mut trailing, &mut inside, ht.as_mut_ptr());
+            let ht = ht.assume_init();
             if inside > 0 {
                 Some((ht.textPosition as usize, Rect::xywh(ht.left, ht.top, ht.width, ht.height)))
             } else {
@@ -98,7 +101,7 @@ impl TextLayoutExt for TextLayout {
 
 use winit::os::windows::WindowExt;
 impl RenderContextExt for RenderContext {
-    fn new(win: &mut winit::Window) -> Result<RenderContext, Box<Error>> {
+    fn new(win: &mut winit::Window) -> Result<RenderContext, Box<dyn Error>> {
         let d2fac = vgu::Factory::new()?;
         let dwfac = vgu::TextFactory::new()?;
         let mut dpi: (f32, f32) = (0.0, 0.0);
@@ -124,10 +127,10 @@ impl RenderContextExt for RenderContext {
         Ok(RenderContext { dwfac, rt, scb, dpi })
     }
 
-    fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>> {
+    fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<dyn Error>> {
         use windows::vgu::*;
         unsafe {
-            let mut txf: *mut vgu::IDWriteTextFormat = uninitialized();
+            let mut txf: MaybeUninit<*mut vgu::IDWriteTextFormat> = MaybeUninit::uninit();
             let mut font_name = name.encode_utf16().collect::<Vec<u16>>();
             font_name.push(0u16);
             font_name.push(0u16);
@@ -140,21 +143,21 @@ impl RenderContextExt for RenderContext {
                                  match style {
                                      FontStyle::Normal => vgu::DWRITE_FONT_STYLE_NORMAL,
                                      FontStyle::Italic => vgu::DWRITE_FONT_STYLE_ITALIC
-                                 }, vgu::DWRITE_FONT_STRETCH_NORMAL, size, [101u16, 110u16, 45u16, 117u16, 115u16, 0u16, 0u16].as_ptr() /*'en-us'*/, &mut txf)
-            .into_result(|| vgu::Com::from_ptr(txf)).map_err(Into::into)
+                                 }, vgu::DWRITE_FONT_STRETCH_NORMAL, size, [101u16, 110u16, 45u16, 117u16, 115u16, 0u16, 0u16].as_ptr() /*'en-us'*/, txf.as_mut_ptr())
+            .into_result(|| vgu::Com::from_ptr(txf.assume_init())).map_err(Into::into)
         }
     }
 
-    fn new_text_layout(&self, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>> {
+    fn new_text_layout(&self, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<dyn Error>> {
         use windows::vgu::*;
         use std::mem::transmute;
         unsafe {
-            let mut lo: *mut IDWriteTextLayout = uninitialized();
+            let mut lo: MaybeUninit<*mut IDWriteTextLayout> = MaybeUninit::uninit();
             let mut txd = text.encode_utf16().collect::<Vec<u16>>();
             txd.push(0u16);
             txd.push(0u16);
-            (*self.dwfac.p).CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, &mut lo)
-                .into_result(|| Com::from_ptr(transmute(lo))).map_err(Into::into)
+            (*self.dwfac.p).CreateTextLayout(txd.as_ptr(), txd.len() as UINT32, f.p, width, height, lo.as_mut_ptr())
+                .into_result(|| Com::from_ptr(transmute(lo.assume_init()))).map_err(Into::into)
         }
     }
 

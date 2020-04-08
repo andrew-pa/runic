@@ -11,9 +11,12 @@ pub use self::winapi::shared::guiddef::*;
 pub use self::winapi::um::unknwnbase::*;
 pub use self::winapi::shared::winerror::*;
 pub use self::winapi::um::d2d1::*;
-pub use self::winapi::um::d2dbasetypes::*;
 pub use self::winapi::um::dwrite::*;
-pub use self::winapi::um::dcommon::*;
+pub use self::winapi::um::dcommon::{
+    D2D_SIZE_U,
+    D2D1_PIXEL_FORMAT,
+    DWRITE_MEASURING_MODE_NATURAL
+};  
 pub use self::winapi::shared::dxgiformat::*;
 pub use self::winapi::um::errhandlingapi::*;
 pub use self::winapi::ctypes::*;
@@ -23,7 +26,7 @@ use std::fmt;
 use std::ops;
 use std::error::Error;
 use std::ptr::{null_mut, null};
-use std::mem::{uninitialized, transmute};
+use std::mem::{MaybeUninit, transmute};
 
 #[derive(Debug)]
 pub struct HResultError {
@@ -79,8 +82,8 @@ impl<T> Com<T> {
 
     pub fn query_interface<U>(&self, id: IID) -> Result<Com<U>, HResultError> {
         unsafe {
-            let mut up: *mut U = uninitialized();
-            (*self.punk).QueryInterface(&id, (&mut up as *mut *mut U) as *mut *mut c_void).into_result(|| Com { punk: self.punk, p: up })
+            let mut up: MaybeUninit<*mut U> = MaybeUninit::uninit();
+            (*self.punk).QueryInterface(&id, up.as_mut_ptr() as *mut *mut c_void).into_result(|| Com { punk: self.punk, p: up.assume_init() })
         }
     }
 }
@@ -165,7 +168,7 @@ impl WindowRenderTarget {
         let size = D2D_SIZE_U { width: rc.0, height: rc.1 };
         let pxfmt = D2D1_PIXEL_FORMAT {
             format: DXGI_FORMAT_B8G8R8A8_UNORM,
-            alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED
+            alphaMode: self::winapi::um::dcommon::D2D1_ALPHA_MODE_PREMULTIPLIED
         };
         let render_props = D2D1_RENDER_TARGET_PROPERTIES {
             _type: D2D1_RENDER_TARGET_TYPE_DEFAULT,
@@ -218,8 +221,10 @@ extern "system" {
 impl TextFactory {
     pub fn new() -> Result<TextFactory, HResultError> {
         unsafe {
-            let fac : *mut IDWriteFactory = uninitialized();
-            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &UuidOfIDWriteFactory, transmute(&fac)).into_result(|| Com::from_ptr(transmute(fac)))
+            let mut fac : MaybeUninit<*mut IDWriteFactory> = MaybeUninit::uninit();
+            DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &UuidOfIDWriteFactory,
+                    transmute(fac.as_mut_ptr()))
+                .into_result(|| Com::from_ptr(transmute(fac.assume_init())))
         }
     }
 }

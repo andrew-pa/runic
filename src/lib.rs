@@ -218,13 +218,13 @@ pub trait TextLayoutExt {
 
 pub trait RenderContextExt {
     /// Create a new RenderContext, and resize the window to be in DIP units
-    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+    fn new(win: &mut winit::Window) -> Result<Self, Box<dyn Error>> where Self: Sized;
 
     /// Create a new font, looking the name up in the system font registery
-    fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<Error>>;
+    fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<dyn Error>>;
 
     /// Create a new text layout. The text will be wrapped to `width` and `height`
-    fn new_text_layout(&self, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<Error>>;
+    fn new_text_layout(&self, text: &str, f: &Font, width: f32, height: f32) -> Result<TextLayout, Box<dyn Error>>;
 
     /// Clear the window
     fn clear(&mut self, col: Color);
@@ -282,99 +282,48 @@ pub trait App {
     fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
         use winit::*;
         let mut running = true;
+
         while running {
-            let mut need_repaint = false;
-            evloop.run_forever(|e| {
-                match e {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { running = false },
-                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
-                        rx.resize(w,h);
-                        need_repaint = true;
-                        running = !self.event(e);
-                    },
-                    Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
-                        need_repaint = true;
-                        let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                        running = !self.event(Event::WindowEvent {
-                            event: WindowEvent::CursorMoved {
-                                position: (a as f64, b as f64), device_id, modifiers
-                            },
-                            window_id
-                        });
-                    },
-                    _ => {
-                        need_repaint = true;
-                        running = !self.event(e);
+            {
+                let mut process_event = |e: Event| -> bool {
+                    match e {
+                        Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { false },
+                        Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
+                            rx.resize(w,h);
+                            !self.event(e)
+                        },
+                        Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
+                            let Point {x:a, y:b} = rx.pixels_to_points(position.into());
+                            !self.event(Event::WindowEvent {
+                                event: WindowEvent::CursorMoved {
+                                    position: (a as f64, b as f64), device_id, modifiers
+                                },
+                                window_id
+                            })
+                        },
+                        _ => {
+                            !self.event(e)
+                        }
                     }
                 };
-                ControlFlow::Break
-            });
-            evloop.poll_events(|e| {
-                match e {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { running = false },
-                    Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
-                        rx.resize(w,h);
-                        need_repaint = true;
-                        running = !self.event(e);
-                    },
-                    Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
-                        need_repaint = true;
-                        let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                        running = !self.event(Event::WindowEvent {
-                            event: WindowEvent::CursorMoved {
-                                position: (a as f64, b as f64), device_id, modifiers
-                            },
-                            window_id
-                        });
-                    },
-                    _ => {
-                        need_repaint = true;
-                        running = !self.event(e);
-                    }
-                };
-            });
-            if running && need_repaint {
+
+                // running only one of these results in either a very laggy response to input
+                // events (only run_forever) or insane CPU usage (only poll_events)
+                // not 100% sure why running them both back-to-back like this works better but
+                // it works well enough. Definitly this needs some major work to have no lag but
+                // also minimize CPU usage
+                evloop.run_forever(|e| {
+                    running = process_event(e);
+                    ControlFlow::Break
+                });
+                evloop.poll_events(|e| { running = process_event(e); });
+            }
+            if running {
                 rx.start_paint();
                 self.paint(rx);
                 rx.end_paint();
-                //::std::thread::sleep(::std::time::Duration::from_millis(6)); 
             }
         }
-        /*evloop.run_forever(|ee| {
-            match ee.clone() {
-                Event::WindowEvent { event: e, window_id, .. } => {
-                    match e {
-                        WindowEvent::CloseRequested => ControlFlow::Break,
-                        WindowEvent::CursorMoved { position, device_id, modifiers } => {
-                            let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                            let r = if self.event(Event::WindowEvent {
-                                event: WindowEvent::CursorMoved {
-                                    position: (a as f64, b as f64), device_id, modifiers
-                                }, window_id
-                            }) { ControlFlow::Break } else { ControlFlow::Continue };
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
-                            r
-                        },
-                        WindowEvent::Resized(w, h) => {
-                            rx.resize(w,h);
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
-                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue } 
-                        },
-                        _ => {
-                            rx.start_paint();
-                            self.paint(rx);
-                            rx.end_paint();
-                            if self.event(ee) { ControlFlow::Break } else { ControlFlow::Continue }
-                        } 
-                    }
-                },
-                _ => ControlFlow::Continue
-            }
-        });*/
     }
 }
 
