@@ -159,13 +159,13 @@ pub type Brush = Com<ID2D1Brush>;
 
 pub type WindowRenderTarget = Com<ID2D1HwndRenderTarget>;
 
-use winit::Window;
-use winit::os::windows::WindowExt;
+use winit::window::Window;
+use winit::platform::windows::WindowExtWindows;
 
 impl WindowRenderTarget {
     pub fn new(fct: Factory, win: &Window) -> Result<WindowRenderTarget, HResultError> {
-        let rc = win.get_inner_size().ok_or(HResultError::new(E_FAIL))?;
-        let size = D2D_SIZE_U { width: rc.0, height: rc.1 };
+        let rc = win.inner_size();
+        let size = D2D_SIZE_U { width: rc.width, height: rc.height };
         let pxfmt = D2D1_PIXEL_FORMAT {
             format: DXGI_FORMAT_B8G8R8A8_UNORM,
             alphaMode: self::winapi::um::dcommon::D2D1_ALPHA_MODE_PREMULTIPLIED
@@ -178,7 +178,7 @@ impl WindowRenderTarget {
             minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
         };
         let hwnd_rp = D2D1_HWND_RENDER_TARGET_PROPERTIES {
-            hwnd: win.get_hwnd() as HWND,
+            hwnd: win.hwnd() as HWND,
             pixelSize: size,
             presentOptions: D2D1_PRESENT_OPTIONS_NONE
         };

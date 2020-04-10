@@ -218,7 +218,7 @@ pub trait TextLayoutExt {
 
 pub trait RenderContextExt {
     /// Create a new RenderContext, and resize the window to be in DIP units
-    fn new(win: &mut winit::Window) -> Result<Self, Box<dyn Error>> where Self: Sized;
+    fn new(win: &mut winit::window::Window) -> Result<Self, Box<dyn Error>> where Self: Sized;
 
     /// Create a new font, looking the name up in the system font registery
     fn new_font(&self, name: &str, size: f32, weight: FontWeight, style: FontStyle) -> Result<Font, Box<dyn Error>>;
@@ -272,60 +272,62 @@ pub trait RenderContextExt {
     fn pixels_to_points(&self, p: Point) -> Point;
 }
 
+pub use winit::event::{MouseButton, VirtualKeyCode, ElementState, TouchPhase, ModifiersState, KeyboardInput};
+pub use winit::dpi as dpi;
+pub use winit::event::WindowEvent as Event;
+pub use winit::window::WindowBuilder as WindowOptions;
+
 /// The App trait represents an application that uses RenderContext to draw its interface.
 /// The `run` function is provided to conveniently set up the loop that handles winit events and
 /// redraws the App interface using `paint`
 pub trait App {
+    /// Initialize a new App, this automatically called by `runic::start()` after initializing the
+    /// system and creating a RenderContext
+    fn init(rx: &mut RenderContext) -> Self;
+
+    /// Draw the interface for the App, this is called enough for animations and such
     fn paint(&mut self, rx: &mut RenderContext);
-    fn event(&mut self, e: winit::Event) -> bool;
 
-    fn run(&mut self, rx: &mut RenderContext, evloop: &mut winit::EventsLoop) {
-        use winit::*;
-        let mut running = true;
-
-        while running {
-            {
-                let mut process_event = |e: Event| -> bool {
-                    match e {
-                        Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => { false },
-                        Event::WindowEvent { event: WindowEvent::Resized(w, h), .. } => {
-                            rx.resize(w,h);
-                            !self.event(e)
-                        },
-                        Event::WindowEvent { event: WindowEvent::CursorMoved { position, device_id, modifiers }, window_id } => {
-                            let Point {x:a, y:b} = rx.pixels_to_points(position.into());
-                            !self.event(Event::WindowEvent {
-                                event: WindowEvent::CursorMoved {
-                                    position: (a as f64, b as f64), device_id, modifiers
-                                },
-                                window_id
-                            })
-                        },
-                        _ => {
-                            !self.event(e)
-                        }
-                    }
-                };
-
-                // running only one of these results in either a very laggy response to input
-                // events (only run_forever) or insane CPU usage (only poll_events)
-                // not 100% sure why running them both back-to-back like this works better but
-                // it works well enough. Definitly this needs some major work to have no lag but
-                // also minimize CPU usage
-                evloop.run_forever(|e| {
-                    running = process_event(e);
-                    ControlFlow::Break
-                });
-                evloop.poll_events(|e| { running = process_event(e); });
-            }
-            if running {
-                rx.start_paint();
-                self.paint(rx);
-                rx.end_paint();
-            }
-        }
-    }
+    /// Handle any events this App recieves. `Event` is an alias for `winit::event::WindowEvent`,
+    /// device events aren't passed to applications. Return false to exit the event loop and exit
+    /// the application
+    fn event(&mut self, e: Event) -> bool;
 }
 
-/// Initialize runic library. On Windows this enables HiDPI mode
-pub fn init() { imp::init(); }
+/// Start an runic app specified by `AppT` and run the event loop
+pub fn start<AppT: 'static + App>(winopts: WindowOptions) -> ! {
+    imp::init();
+    let el = winit::event_loop::EventLoop::new();
+    let mut window = winopts.build(&el).expect("create new window"); 
+    let mut rx = RenderContext::new(&mut window).expect("create render context");
+    let mut app = AppT::init(&mut rx);
+    el.run(move |ev, _, ctrl_flow| {
+        use winit::event::Event;
+        use winit::event_loop::ControlFlow;
+        *ctrl_flow = ControlFlow::Poll;
+        match ev {
+            Event::WindowEvent { event, .. } => {
+                #[allow(deprecated)]
+                if let winit::event::WindowEvent::CursorMoved { device_id, position, modifiers } = event {
+                    let scaled = rx.pixels_to_points(Point { x: position.x as f32, y: position.y as f32 });
+                    if app.event(winit::event::WindowEvent::CursorMoved {
+                        device_id, position: dpi::PhysicalPosition{ x: scaled.x as f64, y: scaled.y as f64 }, modifiers 
+                    }) {
+                        *ctrl_flow = ControlFlow::Exit;
+                    }
+                } else if app.event(event) {
+                    *ctrl_flow = ControlFlow::Exit
+                }             
+            },
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            },
+            Event::RedrawRequested(_) => {
+                rx.start_paint();
+                app.paint(&mut rx);
+                rx.end_paint();
+            }
+            _ => ()
+        }
+    })
+}

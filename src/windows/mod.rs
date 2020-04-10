@@ -99,16 +99,17 @@ impl TextLayoutExt for TextLayout {
     }
 }
 
-use winit::os::windows::WindowExt;
+use winit::platform::windows::WindowExtWindows;
 impl RenderContextExt for RenderContext {
-    fn new(win: &mut winit::Window) -> Result<RenderContext, Box<dyn Error>> {
+    fn new(win: &mut winit::window::Window) -> Result<RenderContext, Box<dyn Error>> {
         let d2fac = vgu::Factory::new()?;
         let dwfac = vgu::TextFactory::new()?;
         let mut dpi: (f32, f32) = (0.0, 0.0);
+        //TODO: Winit now has all the APIs needed to do this without using Winapi
         unsafe { (*d2fac.p).GetDesktopDpi(&mut dpi.0, &mut dpi.1); }
-        let (width, height) = win.get_inner_size().ok_or("fail")?;
+        let winit::dpi::PhysicalSize{ width, height } = win.inner_size();
         unsafe {
-            let wnd = win.get_hwnd() as vgu::HWND;
+            let wnd = win.hwnd() as vgu::HWND;
             let mut rect = vgu::RECT {
                 left: 0, top: 0,
                 right: ((width as f32) * (dpi.0 / 96.0)).ceil() as i32,
