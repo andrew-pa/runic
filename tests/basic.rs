@@ -2,12 +2,13 @@ extern crate runic;
 extern crate winit;
 
 use runic::*;
-use winit::*;
 
 struct TestApp {
 }
 
 impl App for TestApp {
+    fn init(_: &mut RenderContext) -> Self { TestApp{} }
+
     fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
         rx.set_color(Color::rgb(0.4, 0.05, 1.0));
@@ -15,16 +16,11 @@ impl App for TestApp {
     }
 
     fn event(&mut self, e: Event) -> bool {
-        false
+        if let Event::CloseRequested = e { true } else { false }
     }
 }
 
 #[test]
 fn basic() {
-    runic::init();
-    let mut evl = EventsLoop::new();
-    let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Basic Window").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&mut window).expect("create render context!");
-    let mut app = TestApp{};
-    app.run(&mut rx, &mut evl);
+    runic::start::<TestApp>(WindowOptions::new().with_title("Basic Window"));
 }

@@ -2,7 +2,6 @@ extern crate runic;
 extern crate winit;
 
 use runic::*;
-use winit::*;
 
 struct TestApp {
     font: Font,
@@ -10,9 +9,9 @@ struct TestApp {
     layout2: TextLayout,
 }
 
-impl TestApp {
-    fn new(rx: &mut RenderContext) -> TestApp {
-        let mut font = rx.new_font("Arial", 40.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
+impl App for TestApp {
+    fn init(rx: &mut RenderContext) -> TestApp {
+        let font = rx.new_font("Arial", 40.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
         let layout = rx.new_text_layout("The quick brown fox jumps over the lazy dog!", &font, 1000.0, 128.0).expect("create text layout");
         layout.color_range(rx, 0..3, Color::rgb(0.3, 0.3, 0.3));
         layout.color_range(rx, 31..34, Color::rgb(0.3, 0.3, 0.3));
@@ -30,9 +29,6 @@ impl TestApp {
             font, layout, layout2
         }
     }
-}
-
-impl App for TestApp {
 
     fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(0.1, 0.1, 0.12));
@@ -44,29 +40,22 @@ impl App for TestApp {
 
     fn event(&mut self, e: Event) -> bool {
         match e {
-            Event::WindowEvent { event: e, .. } => match e {
-                WindowEvent::CursorMoved { position: (x,y), .. } => {
-                    let b = self.layout.bounds();
-                    self.layout2.underline_range(0..32, false);
-                    if let Some((i, r)) = self.layout2.hit_test(Point::xy(x as f32 - 8.0, y as f32 - (16.0+b.h)))  {
-                        self.layout2.underline_range(0..(i as u32 + 1), true);
-                        self.layout2.style_range((i as u32)..(i as u32 + 1), FontStyle::Italic);
-                    }
+            Event::CloseRequested => true,
+            Event::CursorMoved { position: dpi::PhysicalPosition{x,y}, .. } => {
+                let b = self.layout.bounds();
+                self.layout2.underline_range(0..32, false);
+                if let Some((i, r)) = self.layout2.hit_test(Point::xy(x as f32 - 8.0, y as f32 - (16.0+b.h)))  {
+                    self.layout2.underline_range(0..(i as u32 + 1), true);
+                    self.layout2.style_range((i as u32)..(i as u32 + 1), FontStyle::Italic);
                 }
-                _=>{}
-            },
-            _=>{}
+                false
+            }
+            _=> false
         }
-        false
     }
 }
 
 #[test]
 fn range_styles() {
-    runic::init();
-    let mut evl = EventsLoop::new();
-    let mut window = WindowBuilder::new().with_dimensions(1000, 256).with_title("Styled Ranges").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&mut window).expect("create render context!");
-    let mut app = TestApp::new(&mut rx);
-    app.run(&mut rx, &mut evl);
+    runic::start::<TestApp>(WindowOptions::new().with_title("Ranged styles"));
 }

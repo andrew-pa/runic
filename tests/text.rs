@@ -2,24 +2,20 @@ extern crate runic;
 extern crate winit;
 
 use runic::*;
-use winit::*;
 
 struct TestApp {
     font: Font, layout: TextLayout,
     mouse_pos: Point
 }
 
-impl TestApp {
-    fn new(rx: &mut RenderContext) -> TestApp {
+impl App for TestApp {
+    fn init(rx: &mut RenderContext) -> TestApp {
         let mut font = rx.new_font("Arial", 32.0, FontWeight::Regular, FontStyle::Normal).expect("load font");
         let layout = rx.new_text_layout("Hello, 😌Text Layouts!😄", &font, 512.0, 512.0).expect("create text layout");
         TestApp {
             font, layout, mouse_pos: Point::default()
         }
     }
-}
-
-impl App for TestApp {
 
     fn paint(&mut self, rx: &mut RenderContext) {
         rx.clear(Color::rgb(1.0, 0.4, 0.05));
@@ -41,24 +37,17 @@ impl App for TestApp {
 
     fn event(&mut self, e: Event) -> bool {
         match e {
-            Event::WindowEvent { event: e, .. } => match e {
-                WindowEvent::CursorMoved { position: (x,y), .. } => {
-                    self.mouse_pos = Point::xy(x as f32, y as f32);
-                }
-                _=>{}
+            Event::CloseRequested => true,
+            Event::CursorMoved { position: dpi::PhysicalPosition{x,y}, .. } => {
+                self.mouse_pos = Point::xy(x as f32, y as f32);
+                false
             },
-            _=>{}
+            _=> false,
         }
-        false
     }
 }
 
 #[test]
 fn text() {
-    runic::init();
-    let mut evl = EventsLoop::new();
-    let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Text!").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&mut window).expect("create render context!");
-    let mut app = TestApp::new(&mut rx);
-    app.run(&mut rx, &mut evl);
+    runic::start::<TestApp>(WindowOptions::new());
 }
