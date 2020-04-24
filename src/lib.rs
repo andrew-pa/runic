@@ -275,6 +275,7 @@ pub trait RenderContextExt {
 pub use winit::event::{MouseButton, VirtualKeyCode, ElementState, TouchPhase, ModifiersState, KeyboardInput};
 pub use winit::dpi as dpi;
 pub use winit::event::WindowEvent as Event;
+pub use winit::window::Window as Window;
 pub use winit::window::WindowBuilder as WindowOptions;
 
 /// The App trait represents an application that uses RenderContext to draw its interface.
@@ -284,6 +285,9 @@ pub trait App {
     /// Initialize a new App, this automatically called by `runic::start()` after initializing the
     /// system and creating a RenderContext
     fn init(rx: &mut RenderContext) -> Self;
+
+    /// do any additional necessary configuration to the application window
+    fn configure_window(&mut self, _: &mut Window) {}
 
     /// Draw the interface for the App, this is called enough for animations and such
     fn paint(&mut self, rx: &mut RenderContext);
@@ -295,12 +299,14 @@ pub trait App {
 }
 
 /// Start an runic app specified by `AppT` and run the event loop
+/// the WindowOptions will be used to create the window the app will run in
 pub fn start<AppT: 'static + App>(winopts: WindowOptions) -> ! {
     imp::init();
     let el = winit::event_loop::EventLoop::new();
     let mut window = winopts.build(&el).expect("create new window"); 
     let mut rx = RenderContext::new(&mut window).expect("create render context");
     let mut app = AppT::init(&mut rx);
+    app.configure_window(&mut window);
     el.run(move |ev, _, ctrl_flow| {
         use winit::event::Event;
         use winit::event_loop::ControlFlow;
@@ -308,16 +314,26 @@ pub fn start<AppT: 'static + App>(winopts: WindowOptions) -> ! {
         match ev {
             Event::WindowEvent { event, .. } => {
                 #[allow(deprecated)]
-                if let winit::event::WindowEvent::CursorMoved { device_id, position, modifiers } = event {
-                    let scaled = rx.pixels_to_points(Point { x: position.x as f32, y: position.y as f32 });
-                    if app.event(winit::event::WindowEvent::CursorMoved {
-                        device_id, position: dpi::PhysicalPosition{ x: scaled.x as f64, y: scaled.y as f64 }, modifiers 
-                    }) {
-                        *ctrl_flow = ControlFlow::Exit;
+                match event {
+                    winit::event::WindowEvent::CursorMoved { device_id, position, modifiers } =>  {
+                        let scaled = rx.pixels_to_points(Point { x: position.x as f32, y: position.y as f32 });
+                        if app.event(winit::event::WindowEvent::CursorMoved {
+                            device_id, position: dpi::PhysicalPosition{ x: scaled.x as f64, y: scaled.y as f64 }, modifiers 
+                        }) {
+                            *ctrl_flow = ControlFlow::Exit;
+                        }
+                    },
+                    winit::event::WindowEvent::Resized(size) => {
+                        rx.resize(size.width, size.height);
+                        window.request_redraw();
+                        if app.event(event) { *ctrl_flow = ControlFlow::Exit }
+                    },
+                    _=> {
+                        if app.event(event) {
+                            *ctrl_flow = ControlFlow::Exit
+                        }
                     }
-                } else if app.event(event) {
-                    *ctrl_flow = ControlFlow::Exit
-                }             
+                }
             },
             Event::MainEventsCleared => {
                 window.request_redraw();
