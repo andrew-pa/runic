@@ -1,6 +1,3 @@
-extern crate runic;
-extern crate winit;
-
 use runic::*;
 
 struct TestApp {
@@ -15,16 +12,16 @@ impl App for TestApp {
         rx.fill_rect(Rect::xywh(64.0, 64.0, 100.0, 100.0));
     }
 
-    fn event(&mut self, e: Event) -> bool {
+    fn event(&mut self, e: Event, elf: &mut ControlFlowOpts, _: &mut bool) {
         match e {
-            Event::CloseRequested => true,
+            Event::CloseRequested => *elf = ControlFlowOpts::Exit,
             Event::KeyboardInput { input, .. } => {
                 match input.virtual_keycode {
-                    Some(VirtualKeyCode::Escape) => true,
-                    _ => false
+                    Some(VirtualKeyCode::Escape) => *elf = ControlFlowOpts::Exit,
+                    _ => {}
                 }
             },
-            _ => false
+            _ => {}
         }
     }
 }

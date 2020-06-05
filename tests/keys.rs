@@ -1,6 +1,3 @@
-extern crate runic;
-extern crate winit;
-
 use runic::*;
 
 
@@ -22,19 +19,19 @@ impl App for TestApp {
         rx.draw_text(Rect::xywh(8.0, 8.0, 512.0, 512.0), &format!("{:?}", self.last_kbi), &self.font);
     }
 
-    fn event(&mut self, e: Event) -> bool{
+    fn event(&mut self, e: Event, elf: &mut ControlFlowOpts, should_redraw: &mut bool) {
         match e {
-            Event::CloseRequested => true,
+            Event::CloseRequested => *elf = ControlFlowOpts::Exit,
             Event::KeyboardInput { input: kbi, .. } => {
                 self.last_kbi = Some(kbi);
-                false
+                *should_redraw = true;
             }
-            _ => {false}
+            _ => {}
         }
     }
 }
 
 #[test]
 fn keys() {
-  runic::start::<TestApp>(WindowOptions::new().with_title("Keyboard Test")) 
+    runic::start::<TestApp>(WindowOptions::new().with_title("Keyboard Test")) 
 }

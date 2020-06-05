@@ -1,6 +1,3 @@
-extern crate runic;
-extern crate winit;
-
 use runic::*;
 
 struct TestApp {
@@ -15,8 +12,8 @@ impl App for TestApp {
         rx.stroke_rect(Rect::xywh(64.0, 64.0, 100.0, 100.0), 8.0);
     }
 
-    fn event(&mut self, e: Event) -> bool {
-        if let Event::CloseRequested = e { true } else { false }
+    fn event(&mut self, e: Event, event_loop_flow: &mut ControlFlowOpts, _: &mut bool) {
+        if let Event::CloseRequested = e { *event_loop_flow = ControlFlowOpts::Exit; }
     }
 }
 

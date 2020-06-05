@@ -275,6 +275,7 @@ pub trait RenderContextExt {
 pub use winit::event::{MouseButton, VirtualKeyCode, ElementState, TouchPhase, ModifiersState, KeyboardInput};
 pub use winit::dpi as dpi;
 pub use winit::event::WindowEvent as Event;
+pub use winit::event_loop::ControlFlow as ControlFlowOpts;
 pub use winit::window::Window as Window;
 pub use winit::window::WindowBuilder as WindowOptions;
 
@@ -293,9 +294,11 @@ pub trait App {
     fn paint(&mut self, rx: &mut RenderContext);
 
     /// Handle any events this App recieves. `Event` is an alias for `winit::event::WindowEvent`,
-    /// device events aren't passed to applications. Return false to exit the event loop and exit
-    /// the application
-    fn event(&mut self, e: Event) -> bool;
+    /// device events aren't passed to applications. `event_loop_flow` functions exactly as
+    /// specified by winit, the default value is `ControlFlowOpts::Wait`. `should_redraw` should be
+    /// set to `true` if this event invalidates the current window contents, otherwise it can be
+    /// ignored.
+    fn event(&mut self, e: Event, event_loop_flow: &mut ControlFlowOpts, should_redraw: &mut bool);
 }
 
 /// Start an runic app specified by `AppT` and run the event loop
@@ -306,37 +309,37 @@ pub fn start<AppT: 'static + App>(winopts: WindowOptions) -> ! {
     let mut window = winopts.build(&el).expect("create new window"); 
     let mut rx = RenderContext::new(&mut window).expect("create render context");
     let mut app = AppT::init(&mut rx);
+    let mut should_redraw = false;
     app.configure_window(&mut window);
     el.run(move |ev, _, ctrl_flow| {
         use winit::event::Event;
         use winit::event_loop::ControlFlow;
-        *ctrl_flow = ControlFlow::Poll;
+        *ctrl_flow = ControlFlow::Wait;
         match ev {
             Event::WindowEvent { event, .. } => {
                 #[allow(deprecated)]
                 match event {
                     winit::event::WindowEvent::CursorMoved { device_id, position, modifiers } =>  {
                         let scaled = rx.pixels_to_points(Point { x: position.x as f32, y: position.y as f32 });
-                        if app.event(winit::event::WindowEvent::CursorMoved {
+                        app.event(winit::event::WindowEvent::CursorMoved {
                             device_id, position: dpi::PhysicalPosition{ x: scaled.x as f64, y: scaled.y as f64 }, modifiers 
-                        }) {
-                            *ctrl_flow = ControlFlow::Exit;
-                        }
+                        }, ctrl_flow, &mut should_redraw);
                     },
                     winit::event::WindowEvent::Resized(size) => {
                         rx.resize(size.width, size.height);
                         window.request_redraw();
-                        if app.event(event) { *ctrl_flow = ControlFlow::Exit }
+                        app.event(event, ctrl_flow, &mut should_redraw);
                     },
                     _=> {
-                        if app.event(event) {
-                            *ctrl_flow = ControlFlow::Exit
-                        }
+                        app.event(event, ctrl_flow, &mut should_redraw);
                     }
                 }
             },
             Event::MainEventsCleared => {
-                window.request_redraw();
+                if should_redraw {
+                    window.request_redraw();
+                    should_redraw = false;
+                }
             },
             Event::RedrawRequested(_) => {
                 rx.start_paint();

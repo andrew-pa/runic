@@ -1,7 +1,8 @@
 [package]
 name = "runic"
-version = "0.7.0"
-authors = ["Andrew <andrew.pa@outlook.com>"]
+version = "0.8.0"
+authors = ["Andrew Palmer <andrew.pa@outlook.com>"]
+edition = "2018"
 
 [dependencies]
 winit = "0.22"

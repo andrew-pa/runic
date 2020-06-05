@@ -1,6 +1,3 @@
-extern crate runic;
-extern crate winit;
-
 use runic::*;
 
 struct TestApp {
@@ -10,7 +7,7 @@ struct TestApp {
 
 impl App for TestApp {
     fn init(_: &mut RenderContext) -> Self {
-        TestApp{mouse_loc: Point::xy(0.0,0.0), mouse_button: None}
+        TestApp { mouse_loc: Point::xy(0.0,0.0), mouse_button: None }
     }
 
     fn paint(&mut self, rx: &mut RenderContext) {
@@ -24,32 +21,27 @@ impl App for TestApp {
         rx.fill_rect(Rect::pnwh(self.mouse_loc, 32.0, 32.0));
     }
 
-    fn event(&mut self, e: Event) -> bool {
+    fn event(&mut self, e: Event, elf: &mut ControlFlowOpts, should_redraw: &mut bool) {
         match e {
-            Event::CloseRequested => true,
+            Event::CloseRequested => *elf = ControlFlowOpts::Exit,
             Event::CursorMoved { position: dpi::PhysicalPosition { x,y }, .. } => {
+                println!("{:?}", e);
                 self.mouse_loc = Point::xy(x as f32,y as f32);
-                false
+                *should_redraw = true;
             },
             Event::MouseInput { state, button, .. } => {
                 self.mouse_button = match state {
                     ElementState::Pressed => Some(button),
                     _ => None
                 };
-                false
+                *should_redraw = true;
             },
-            _ => {false}
+            _ => {}
         } 
     }
 }
 
 #[test]
 fn mouse() {
-    /*runic::init();
-    let mut evl = EventsLoop::new();
-    let mut window = WindowBuilder::new().with_dimensions(512, 521).with_title("Mouse Test").build(&evl).expect("create window!");
-    let mut rx = RenderContext::new(&mut window).expect("create render context!");
-    let mut app = TestApp{mouse_loc: Point::xy(0.0,0.0), mouse_button: None};
-    app.run(&mut rx, &mut evl);*/
     runic::start::<TestApp>(WindowOptions::new().with_title("Mouse Test"));
 }

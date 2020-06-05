@@ -35,14 +35,14 @@ impl App for TestApp {
         }
     }
 
-    fn event(&mut self, e: Event) -> bool {
+    fn event(&mut self, e: Event, elf: &mut ControlFlowOpts, should_redraw: &mut bool) {
         match e {
-            Event::CloseRequested => true,
+            Event::CloseRequested => *elf = ControlFlowOpts::Exit,
             Event::CursorMoved { position: dpi::PhysicalPosition{x,y}, .. } => {
                 self.mouse_pos = Point::xy(x as f32, y as f32);
-                false
+                *should_redraw = true;
             },
-            _=> false,
+            _=> {},
         }
     }
 }

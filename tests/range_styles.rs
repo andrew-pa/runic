@@ -1,6 +1,3 @@
-extern crate runic;
-extern crate winit;
-
 use runic::*;
 
 struct TestApp {
@@ -38,9 +35,9 @@ impl App for TestApp {
         rx.draw_text_layout(Point::xy(8.0, 16.0+b.h), &self.layout2);
     }
 
-    fn event(&mut self, e: Event) -> bool {
+    fn event(&mut self, e: Event, elf: &mut ControlFlowOpts, should_redraw: &mut bool) {
         match e {
-            Event::CloseRequested => true,
+            Event::CloseRequested => *elf = ControlFlowOpts::Exit,
             Event::CursorMoved { position: dpi::PhysicalPosition{x,y}, .. } => {
                 let b = self.layout.bounds();
                 self.layout2.underline_range(0..32, false);
@@ -48,9 +45,9 @@ impl App for TestApp {
                     self.layout2.underline_range(0..(i as u32 + 1), true);
                     self.layout2.style_range((i as u32)..(i as u32 + 1), FontStyle::Italic);
                 }
-                false
+                *should_redraw = true;
             }
-            _=> false
+            _=> {}
         }
     }
 }
