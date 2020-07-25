@@ -20,21 +20,21 @@ extern crate gobject_sys;
 #[cfg(linux)]
 extern crate x11_dl;
 
-#[cfg(windows)]
+#[cfg(target_os="windows")]
 mod windows;
 #[cfg(target_os="macos")]
 mod macos;
-#[cfg(linux)]
+#[cfg(target_os="linux")]
 mod unix;
 
 #[cfg(any(target_os="macos", target_os="linux"))]
 mod cairo_context;
 
-#[cfg(windows)]
+#[cfg(target_os="windows")]
 use windows as imp;
 #[cfg(target_os="macos")]
 use macos as imp;
-#[cfg(linux)]
+#[cfg(target_os="linux")]
 use unix as imp;
 
 #[derive(Copy,Clone,Debug)]
@@ -184,6 +184,10 @@ impl Color {
             b: self.b*omt + other.b*t,
             a: self.a*omt + other.a*t    
         }
+    }
+
+    pub fn with_alpha(&self, alpha: f32) -> Color {
+        Color::rgba(self.r, self.g, self.b, alpha)
     }
 }
 
