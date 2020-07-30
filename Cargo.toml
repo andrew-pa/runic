@@ -1,13 +1,13 @@
 [package]
 name = "runic"
-version = "0.8.0"
+version = "0.8.2"
 authors = ["Andrew Palmer <andrew.pa@outlook.com>"]
 edition = "2018"
 
 [dependencies]
 winit = "0.22"
 
-[target.'cfg(windows)'.dependencies]
+[target.'cfg(target_os="windows")'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "winbase", "d2d1" ] }
 
 [target.'cfg(target_os="macos")'.dependencies]

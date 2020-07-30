@@ -48,7 +48,7 @@ extern "C" {
 
 pub struct UnixCairoSurface {
     surface: *mut cairo_surface_t,
-    wayland_objects: Option<(egl::EGLDisplay, egl::EGLSurface)>,
+    wayland_objects: Option<(egl::EGLDisplay, egl::EGLSurface, *mut wayland_sys::egl::wl_egl_window)>,
     size: (u32, u32)
 }
 
@@ -69,7 +69,7 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
                     println!("egl error = {:x}, returned = {:x}", egl::GetError(), egr);
                     return Err("failed to initialize EGL".into());
                 }
-                println!("EGL major.minor = {}.{}", major, minor);
+                //println!("EGL major.minor = {}.{}", major, minor);
 
                 let egr = egl::BindAPI(0x30a2 /*OpenGL*/);
                 if egr != 1 {
@@ -116,7 +116,7 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
 
                 Ok(UnixCairoSurface {
                     surface: cairo_gl_surface_create_for_egl(cdevice, egl_surf, width as i32, height as i32),
-                    wayland_objects: Some((display, egl_surf)),
+                    wayland_objects: Some((display, egl_surf, egl_window)),
                     size: (width, height)
                 })
             }
@@ -162,7 +162,8 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
         }
         #[cfg(feature = "wayland")]
         unsafe {
-            //self.wayland_objects.as_ref().unwrap().2.resize(w as i32, h as i32, 0, 0);
+            (wayland_sys::egl::WAYLAND_EGL_HANDLE.wl_egl_window_resize)(
+                self.wayland_objects.as_ref().unwrap().2, w as i32, h as i32, 0, 0);
             cairo_gl_surface_set_size(self.surface, w as i32, h as i32);
         }
     }
