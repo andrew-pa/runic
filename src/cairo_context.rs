@@ -1,4 +1,4 @@
-use *;
+use crate::*;
 
 use std::error::Error;
 use std::os::raw::c_void;
@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use cairo_sys::*;
 use pango_sys::*;
-use pangocairo_sys::*;
+use pango_cairo_sys::*;
 use gobject_sys::{g_object_unref, g_object_ref};
 
 struct PangoFontDesc(*mut PangoFontDescription);
@@ -166,7 +166,7 @@ impl TextLayoutExt for TextLayout {
 
 
 pub trait CairoSurface {
-    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized;
+    fn new(win: &mut Window) -> Result<Self, Box<Error>> where Self: Sized;
     fn start_paint(&mut self);
     fn end_paint(&mut self);
     fn resize(&mut self, w: u32, h: u32);
@@ -214,7 +214,7 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
     fn clear(&mut self, col: Color) {
         unsafe {
             self.set_color(col);
-            cairo_set_operator(self.cx, enums::Operator::Source);
+            //cairo_set_operator(self.cx, enums::Operator::Source);
             cairo_paint(self.cx);
         }
     }
@@ -278,7 +278,7 @@ impl<S: CairoSurface> RenderContextExt for CairoRenderContext<S> {
         }
     }
 
-    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> {
+    fn new(win: &mut Window) -> Result<Self, Box<Error>> {
         unsafe {
             let mut surf = S::new(win)?;
             let cx = cairo_create(surf.surface());

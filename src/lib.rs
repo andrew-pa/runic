@@ -1,24 +1,5 @@
-extern crate winit;
 use std::error::Error;
 use std::ops::Range;
-
-#[cfg(target_os="macos")]
-#[macro_use]
-extern crate objc;
-#[cfg(target_os="macos")]
-extern crate cocoa;
-
-#[cfg(any(target_os="macos", target_os="linux"))]
-extern crate cairo_sys;
-#[cfg(any(target_os="macos", target_os="linux"))]
-extern crate pango_sys;
-#[cfg(any(target_os="macos", target_os="linux"))]
-extern crate pangocairo_sys;
-#[cfg(any(target_os="macos", target_os="linux"))]
-extern crate gobject_sys;
-
-#[cfg(linux)]
-extern crate x11_dl;
 
 #[cfg(target_os="windows")]
 mod windows;

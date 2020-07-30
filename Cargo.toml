@@ -15,17 +15,17 @@ objc = "0.2"
 cocoa = "0.23"
 
 [target.'cfg(any(target_os="macos", target_os="linux"))'.dependencies]
-cairo-sys-rs = "0.4"
-pango-sys = "0.4"
-pangocairo-sys = "0.4"
-gobject-sys = "0.4"
+cairo-sys-rs = "0.10"
+pango-sys = "0.10"
+pangocairo-sys = "0.11"
+gobject-sys = "0.10"
 
 [target.'cfg(target_os="linux")'.dependencies]
 x11-dl = { version = "2.15", optional = true }
 servo-egl = { version = "0.2", optional = true }
-wayland-egl = { version = "0.27", optional = true }
+wayland-sys = { version = "0.27", optional = true, features = ["client", "egl", "dlopen"] }
 
 [features]
-default = ["x11", "wayland"]
+default = ["wayland"]
 x11 = ["x11-dl"]
-wayland = ["servo-egl", "wayland-egl"]
+wayland = ["servo-egl", "wayland-sys"]

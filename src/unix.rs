@@ -2,7 +2,7 @@
 use std::error::Error;
 use cairo_sys::*;
 use winit;
-use super::Rect;
+use super::{Point, Rect};
 
 #[cfg(feature = "x11")]
 use x11_dl::xlib::*;
@@ -10,13 +10,14 @@ use x11_dl::xlib::*;
 use x11_dl::xrender::*;
 
 #[cfg(feature = "wayland")]
-use servo_egl::egl;
+use egl::egl;
 
 
-use winit::platform::unix::WindowExt;
-use std::mem::transmute;
+use winit::platform::unix::WindowExtUnix;
+use std::mem::{transmute, MaybeUninit};
+use std::ptr::{null, null_mut};
 
-use cairo_context;
+use crate::cairo_context;
 
 #[cfg(feature = "x11")]
 extern "C" {
@@ -28,81 +29,99 @@ extern "C" {
 }
 
 #[cfg(feature = "wayland")]
+#[repr(C)]
+struct cairo_device_t(std::ffi::c_void);
+
+#[cfg(feature = "wayland")]
+#[link(name = "EGL")]
+#[link(name = "GL")]
+#[link(name = "cairo")]
 extern "C" {
+    fn cairo_device_status(device: *mut cairo_device_t) -> i32;
     fn cairo_gl_surface_set_size(surface: *mut cairo_surface_t, w: i32, h: i32);
     fn cairo_gl_surface_swapbuffers(surface: *mut cairo_surface_t) -> i32;
 
     fn cairo_egl_device_create(display: egl::EGLDisplay, context: egl::EGLContext) -> *mut cairo_device_t;
-    fn cairo_gl_surface_create_for_egl(device: *mut cairo_device_t, egl_surface: *mut _, w: i32, h: i32) -> *mut cairo_surface_t;
+    fn cairo_gl_surface_create_for_egl(device: *mut cairo_device_t, egl_surface: egl::EGLSurface, w: i32, h: i32) -> *mut cairo_surface_t;
 }
+
 
 pub struct UnixCairoSurface {
     surface: *mut cairo_surface_t,
-    wayland_objects: Option<(egl::EGLDisplay, egl::EGLSurface, wayland_egl::WlEglSurface)>,
+    wayland_objects: Option<(egl::EGLDisplay, egl::EGLSurface)>,
     size: (u32, u32)
 }
 
 impl cairo_context::CairoSurface for UnixCairoSurface {
-    fn new(win: &mut winit::Window) -> Result<Self, Box<Error>> where Self: Sized {
-        if cfg!(feature = "wayland") && let Some(wayland_display) = win.wayland_display() {
+    fn new(win: &mut winit::window::Window) -> Result<Self, Box<dyn Error>> where Self: Sized {
+        if cfg!(feature = "wayland") && win.wayland_display().is_some() {
             #[cfg(feature = "wayland")]
             unsafe {
+                use winit::dpi::PhysicalSize;
+                use wayland_sys::egl::*;
+
                 // initialize EGL
-                let display = egl::GetDisplay(wayland_display);
-                let mut major: MaybeUninit<egl::EGLInt> = MaybeUninit::uninit();
-                let mut minor: MaybeUninit<egl::EGLInt> = MaybeUninit::uninit();
-                if !egl::Initialize(display, major.as_mut_ptr(), minor.as_mut_ptr()) {
+                let display = egl::GetDisplay(win.wayland_display().unwrap());
+                let mut major: egl::EGLint = 0;
+                let mut minor: egl::EGLint = 0;
+                let egr = egl::Initialize(display, &mut major, &mut minor); 
+                if egr != 1 {
+                    println!("egl error = {:x}, returned = {:x}", egl::GetError(), egr);
                     return Err("failed to initialize EGL".into());
                 }
-                println!("EGL major.minor = {}.{}", major.assume_init(), minor.assume_init());
+                println!("EGL major.minor = {}.{}", major, minor);
 
-                if !egl::BindAPI(egl::EGL_OPENGL_API) {
+                let egr = egl::BindAPI(0x30a2 /*OpenGL*/);
+                if egr != 1 {
+                    println!("egl error = {:x}, returned = {:x}", egl::GetError(), egr);
                     return Err("failed to bind OpenGL API".into());
                 }
 
-                let config_attrbs = [
+                let config_attribs = [
                     egl::EGL_SURFACE_TYPE, egl::EGL_WINDOW_BIT,
                     egl::EGL_RED_SIZE, 1,
                     egl::EGL_GREEN_SIZE, 1,
                     egl::EGL_BLUE_SIZE, 1,
                     egl::EGL_ALPHA_SIZE, 1,
                     egl::EGL_DEPTH_SIZE, 1,
-                    egl::EGL_RENDERABLE_TYPE, egl::EGL_OPENGL_BIT,
+                    egl::EGL_RENDERABLE_TYPE, /*egl::EGL_OPENGL_BIT*/ 0x0008,
                     egl::EGL_NONE
                 ];
 
                 let mut config: MaybeUninit<egl::EGLConfig> = MaybeUninit::uninit();
-                let mut config_num: MaybeUninit<egl::EGLint> = MaybeUninit::uninit();
-                if !egl::ChooseConfig(display, attribs.as_ptr(), config.as_mut_ptr(), 1, config_num.as_mut_ptr())
-                    || config_num.assume_init() != 1 {
+                let mut config_num = 0;
+                let egr = egl::ChooseConfig(display, config_attribs.as_ptr() as *mut i32, &mut *config.as_mut_ptr(), 1, &mut config_num); 
+                if egr != 1 || config_num != 1 {
+                    println!("egl error = {:x}, returned = {:x}, #c = {}", egl::GetError(), egr, config_num);
                     return Err("failed to get a sutiable EGL configuration".into());
                 }
                 let config = config.assume_init();
 
-                let context = match egl::CreateContext(display, config, egl::EGL_NO_CONTEXT, null()) {
-                    null() => { return Err("failed to create EGL context".into()) },
+                let context = match egl::CreateContext(display, config, null_mut(), null_mut()) {
+                    p if p == null_mut() => { return Err("failed to create EGL context".into()) },
                     p => p,
                 };
 
                 let cdevice = cairo_egl_device_create(display, context);
-                if cairo_device_status(cdevice) != CAIRO_STATUS_SUCCESS) {
+                if cairo_device_status(cdevice) != 0 {
                     return Err("failed to create cairo device".into());
                 }
 
                 let PhysicalSize {width, height} = win.inner_size();
 
-                let egl_window = wayland_egl::WlEglSurface::new_from_raw(win.wayland_surface().unwrap(), width, height);
+                let egl_window = (wayland_sys::egl::WAYLAND_EGL_HANDLE.wl_egl_window_create)(
+                                               win.wayland_surface().unwrap() as *mut wayland_sys::client::wl_proxy, width as i32, height as i32);
 
-                let egl_surf = egl::CreateWindowSurface(display, config, egl_window.as_ptr(), null());
+                let egl_surf = egl::CreateWindowSurface(display, config, egl_window as *mut std::ffi::c_void, null());
 
                 Ok(UnixCairoSurface {
-                    surface: cairo_gl_surface_create_for_egl(cdevice, egl_surf, width, height),
-                    wayland_objects: Some((display, egl_surf, egl_window)),
+                    surface: cairo_gl_surface_create_for_egl(cdevice, egl_surf, width as i32, height as i32),
+                    wayland_objects: Some((display, egl_surf)),
                     size: (width, height)
                 })
             }
         } else if cfg!(feature = "x11") && win.xlib_display().is_some() {
-            #[cfg(feature = "x11")]
+            /*#[cfg(feature = "x11")]
             unsafe {
                 let x = Xlib::open()?;
                 let xrndr = Xrender::open()?;
@@ -121,7 +140,7 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
                     (x.XDefaultVisual)(display, screen_id as i32), w as i32, h as i32);
                 println!("surf = {:?}", surf);
                 Ok(UnixCairoSurface { surface: surf, wayland_objects: None, size: (w,h) })
-            }
+            }*/panic!();
         } else {
             Err("no window system found".into())
         }
@@ -143,12 +162,13 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
         }
         #[cfg(feature = "wayland")]
         unsafe {
-            self.wayland_objects.as_ref().unwrap().2.resize(w as i32, h as i32, 0, 0);
+            //self.wayland_objects.as_ref().unwrap().2.resize(w as i32, h as i32, 0, 0);
             cairo_gl_surface_set_size(self.surface, w as i32, h as i32);
         }
     }
     fn surface(&self) -> *mut cairo_surface_t { self.surface }
     fn bounds(&self) -> Rect { Rect::xywh(0.0, 0.0, self.size.0 as f32, self.size.1 as f32) }
+    fn pixels_to_points(&self, p: Point) -> Point { p }
 }
 
 pub type Font = cairo_context::Font;
