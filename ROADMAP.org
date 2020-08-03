@@ -1,9 +1,9 @@
-* TODO Update to new winit
-      - [ ] HiDPI event
-      - [ ] Cursor events
-	- [ ] Better run loop
-* TODO Mouse position in mouse button events
+* TODO Windowing stuff
+    - [ ] HiDPI event
+    - [ ] Multiple windows/apps
+    - [x] Cursor events
+    - [x] Better run loop
 * TODO Render primitives
-      - [ ] Rounded Rectangles
-	- [ ] Bezier paths
-	- [ ] Circles
+    - [ ] Rounded Rectangles
+    - [ ] Bezier paths
+    - [ ] Circles
