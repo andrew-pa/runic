@@ -1,6 +1,6 @@
 [package]
 name = "runic"
-version = "0.8.2"
+version = "0.8.3"
 authors = ["Andrew Palmer <andrew.pa@outlook.com>"]
 edition = "2018"
 
@@ -26,6 +26,6 @@ servo-egl = { version = "0.2", optional = true }
 wayland-sys = { version = "0.27", optional = true, features = ["client", "egl", "dlopen"] }
 
 [features]
-default = ["wayland"]
+default = ["wayland", "x11"]
 x11 = ["x11-dl"]
 wayland = ["servo-egl", "wayland-sys"]

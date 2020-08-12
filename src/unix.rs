@@ -45,11 +45,17 @@ extern "C" {
     fn cairo_gl_surface_create_for_egl(device: *mut cairo_device_t, egl_surface: egl::EGLSurface, w: i32, h: i32) -> *mut cairo_surface_t;
 }
 
+// TODO: dropping the UnixCairoSurface should free the objects in WaylandObjects if they exist
+
+#[cfg(feature = "wayland")]
+type WaylandObjects = (egl::EGLDisplay, egl::EGLSurface, *mut wayland_sys::egl::wl_egl_window);
+#[cfg(all(feature = "x11", not(feature = "wayland")))]
+type WaylandObjects = ();
 
 pub struct UnixCairoSurface {
     surface: *mut cairo_surface_t,
-    wayland_objects: Option<(egl::EGLDisplay, egl::EGLSurface, *mut wayland_sys::egl::wl_egl_window)>,
-    size: (u32, u32)
+    size: (u32, u32),
+    wayland_objects: Option<WaylandObjects>,
 }
 
 impl cairo_context::CairoSurface for UnixCairoSurface {
@@ -120,27 +126,31 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
                     size: (width, height)
                 })
             }
+            #[cfg(not(feature = "wayland"))]
+            { panic!(); }
         } else if cfg!(feature = "x11") && win.xlib_display().is_some() {
-            /*#[cfg(feature = "x11")]
+            #[cfg(feature = "x11")]
             unsafe {
                 let x = Xlib::open()?;
                 let xrndr = Xrender::open()?;
-                let (w,h) = win.get_inner_size_points().ok_or("")?;
-                let _display = win.get_xlib_display();
-                let _xwin = win.get_xlib_window();
-                let _sid = win.get_xlib_screen_id();
-                let display = transmute(win.get_xlib_display().unwrap());
-                let drawable: XID = transmute(win.get_xlib_window().unwrap());
-                let screen_id: usize = transmute(win.get_xlib_screen_id().unwrap());
-                let screen = (x.XScreenOfDisplay)(display, screen_id as i32);
+                let winit::dpi::PhysicalSize {width: w, height: h} = win.inner_size();
+                let _display = win.xlib_display();
+                let _xwin = win.xlib_window();
+                let _sid = win.xlib_screen_id();
+                let display = transmute(win.xlib_display().unwrap());
+                let drawable: XID = transmute(win.xlib_window().unwrap());
+                let screen_id = win.xlib_screen_id().unwrap();
+                let screen = (x.XScreenOfDisplay)(display, screen_id);
                 let fmt = (xrndr.XRenderFindStandardFormat)(display, 0);
                 /*let surf = cairo_xlib_surface_create_with_xrender_format(
                   display, drawable, screen, fmt, w as i32, h as i32);*/
                 let surf = cairo_xlib_surface_create(display, drawable, 
                     (x.XDefaultVisual)(display, screen_id as i32), w as i32, h as i32);
-                println!("surf = {:?}", surf);
-                Ok(UnixCairoSurface { surface: surf, wayland_objects: None, size: (w,h) })
-            }*/panic!();
+                //println!("surf = {:?}", surf);
+                Ok(UnixCairoSurface { surface: surf,
+                    wayland_objects: None,
+                    size: (w,h) })
+            }
         } else {
             Err("no window system found".into())
         }
@@ -150,22 +160,28 @@ impl cairo_context::CairoSurface for UnixCairoSurface {
     fn end_paint(&mut self) {
         unsafe {
             cairo_surface_flush(self.surface);
-            #[cfg(feature = "wayland")]
-            cairo_gl_surface_swapbuffers(self.surface);
+            if self.wayland_objects.is_some() {
+                #[cfg(feature = "wayland")]
+                cairo_gl_surface_swapbuffers(self.surface);
+            }
         }
     }
     fn resize(&mut self, w: u32, h: u32) {
         self.size = (w,h);
-        #[cfg(feature = "x11")]
-        unsafe {
-            cairo_xlib_surface_set_size(self.surface, w as i32, h as i32);
+        if let Some(objs) = self.wayland_objects.as_ref() {
+            #[cfg(feature = "wayland")]
+            unsafe {
+                (wayland_sys::egl::WAYLAND_EGL_HANDLE.wl_egl_window_resize)(
+                    objs.2, w as i32, h as i32, 0, 0);
+                cairo_gl_surface_set_size(self.surface, w as i32, h as i32);
+            }
+        } else {
+            #[cfg(feature = "x11")]
+            unsafe {
+                cairo_xlib_surface_set_size(self.surface, w as i32, h as i32);
+            }
         }
-        #[cfg(feature = "wayland")]
-        unsafe {
-            (wayland_sys::egl::WAYLAND_EGL_HANDLE.wl_egl_window_resize)(
-                self.wayland_objects.as_ref().unwrap().2, w as i32, h as i32, 0, 0);
-            cairo_gl_surface_set_size(self.surface, w as i32, h as i32);
-        }
+
     }
     fn surface(&self) -> *mut cairo_surface_t { self.surface }
     fn bounds(&self) -> Rect { Rect::xywh(0.0, 0.0, self.size.0 as f32, self.size.1 as f32) }

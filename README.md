@@ -11,6 +11,6 @@ The idea isn't so much to provide a widget toolkit, but rather the idea of Runic
 | -------- | ------- |
 | Windows | ✓ |
 | Linux (Wayland) | ✓ (Window chrome is provided by winit, requires Cairo with Cairo GL support) |
-| Linux (Xorg) | 🗙 (Code is there, just needs updated) |
+| Linux (Xorg) | ✓ |
 | MacOS | 🗙 (Again, code is there, but MacOS has changed to break it) |
 
